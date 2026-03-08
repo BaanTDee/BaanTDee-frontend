@@ -1,5 +1,6 @@
 import HeroSection from "@/components/hero-section";
 import CategoryIcons from "@/components/category-icons";
+import HomeMapSection from "@/components/home-map-section";
 import LatestListings from "@/components/latest-listings";
 import FeaturedListings from "@/components/featured-listings";
 import GetStartedSection from "@/components/get-started-section";
@@ -12,6 +13,9 @@ export default function Home() {
 
       {/* Category icons — บ้าน คอนโด ที่ดิน ... */}
       <CategoryIcons />
+
+      {/* แผนที่เลือกทำเล */}
+      <HomeMapSection />
 
       {/* ประกาศล่าสุด — horizontal scroll cards */}
       <LatestListings />

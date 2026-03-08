@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MapPin, ChevronRight, ChevronLeft, Map } from "lucide-react";
+import { MapPin, ChevronRight, ChevronLeft, Map, LayoutGrid } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,9 +12,12 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import ThailandRegionMap from "@/components/thailand-region-map";
+import RegionProvinceMap from "@/components/region-province-map";
 import { regions, type Province } from "@/data/thailand-locations";
+import { REGION_PROVINCE_MAP } from "@/data/province-polygons";
 
 type Step = "region" | "province";
+type ProvinceView = "map" | "grid";
 
 interface LocationSelection {
   regionId?: string;
@@ -30,6 +33,7 @@ export default function LocationFilterModal({ onSelect }: LocationFilterModalPro
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("region");
   const [selection, setSelection] = useState<LocationSelection>({});
+  const [provinceView, setProvinceView] = useState<ProvinceView>("map");
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -42,15 +46,30 @@ export default function LocationFilterModal({ onSelect }: LocationFilterModalPro
   // Step 1: clicked a region on the map
   const handleSelectRegion = (regionId: string, regionName: string) => {
     setSelection({ regionId, regionName });
+    // Default to map view if data available, otherwise grid
+    const hasMap = (REGION_PROVINCE_MAP[regionId]?.provinces?.length ?? 0) > 0;
+    setProvinceView(hasMap ? "map" : "grid");
     setStep("province");
   };
 
-  // Step 2: clicked a province
+  // Step 2a: clicked a province polygon on the map
+  const handleSelectProvinceFromMap = (provinceId: string, provinceName: string) => {
+    const finalSelection = { ...selection, provinceName };
+    onSelect?.(finalSelection);
+    setOpen(false);
+  };
+
+  // Step 2b: clicked a province from the grid
   const handleSelectProvince = (province: Province) => {
     const finalSelection = { ...selection, provinceName: province.name };
     onSelect?.(finalSelection);
     setOpen(false);
   };
+
+  // Check if province polygon map data is available for selected region
+  const hasProvinceMapData =
+    selection.regionId !== undefined &&
+    (REGION_PROVINCE_MAP[selection.regionId]?.provinces?.length ?? 0) > 0;
 
   const handleBack = () => {
     setStep("region");
@@ -144,29 +163,67 @@ export default function LocationFilterModal({ onSelect }: LocationFilterModalPro
           </div>
         )}
 
-        {/* Step 2: Province grid */}
+        {/* Step 2: Province selection */}
         {step === "province" && selectedRegionData && (
-          <ScrollArea style={{ maxHeight: "calc(90vh - 96px)" }}>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">
-              {selectedRegionData.provinces.map((province) => (
-                <button
-                  key={province.name}
-                  onClick={() => handleSelectProvince(province)}
-                  className="flex items-center gap-2 rounded-xl border px-4 py-3 text-left transition hover:bg-blue-50 hover:border-blue-200 group"
+          <div className="flex flex-col min-h-0">
+            {/* View toggle (only when map data is available) */}
+            {hasProvinceMapData && (
+              <div className="flex items-center gap-1 px-4 py-2 border-b bg-gray-50">
+                <span className="text-xs text-muted-foreground mr-2">แสดงเป็น:</span>
+                <Button
+                  variant={provinceView === "map" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setProvinceView("map")}
+                  className="h-7 px-3 text-xs gap-1.5"
                 >
-                  <MapPin className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 group-hover:text-blue-900 truncate">
-                      {province.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {province.districts.length} อำเภอ
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
+                  <Map className="h-3 w-3" />
+                  แผนที่
+                </Button>
+                <Button
+                  variant={provinceView === "grid" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setProvinceView("grid")}
+                  className="h-7 px-3 text-xs gap-1.5"
+                >
+                  <LayoutGrid className="h-3 w-3" />
+                  รายการ
+                </Button>
+              </div>
+            )}
+
+            {/* Province map view */}
+            {(provinceView === "map" && hasProvinceMapData) ? (
+              <div className="overflow-y-auto p-3" style={{ maxHeight: "calc(90vh - 140px)" }}>
+                <RegionProvinceMap
+                  regionId={selection.regionId!}
+                  onSelectProvince={handleSelectProvinceFromMap}
+                />
+              </div>
+            ) : (
+              /* Province grid view (fallback) */
+              <ScrollArea style={{ maxHeight: "calc(90vh - 140px)" }}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">
+                  {selectedRegionData.provinces.map((province) => (
+                    <button
+                      key={province.name}
+                      onClick={() => handleSelectProvince(province)}
+                      className="flex items-center gap-2 rounded-xl border px-4 py-3 text-left transition hover:bg-blue-50 hover:border-blue-200 group"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-600 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-blue-900 truncate">
+                          {province.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {province.districts.length} อำเภอ
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>
