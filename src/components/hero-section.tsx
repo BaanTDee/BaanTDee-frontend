@@ -1,11 +1,42 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import LocationFilterModal from "@/components/location-filter-modal";
 
+const quickFilters = [
+  { label: "บ้านเดี่ยว", type: "house" },
+  { label: "คอนโด", type: "condo" },
+  { label: "ทาวน์เฮาส์", type: "townhouse" },
+  { label: "ที่ดิน", type: "land" },
+  { label: "อาคารพาณิชย์", type: "commercial" },
+];
+
 export default function HeroSection() {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    router.push(`/search?${params.toString()}`);
+  };
+
+  const handleTypeFilter = (type: string) => {
+    router.push(`/search?type=${type}`);
+  };
+
+  const handleLocationSelect = (sel: { regionId?: string; regionName?: string; provinceName?: string }) => {
+    const params = new URLSearchParams();
+    if (sel.provinceName) params.set("province", sel.provinceName);
+    else if (sel.regionId) params.set("region", sel.regionId);
+    router.push(`/search?${params.toString()}`);
+  };
+
   return (
     <section className="relative bg-gradient-to-br from-slate-700 via-slate-800 to-slate-900 py-20">
       {/* Background pattern overlay */}
@@ -34,26 +65,29 @@ export default function HeroSection() {
         </div>
 
         {/* Search box */}
-        <div className="mx-auto mt-10 max-w-2xl">
+        <form onSubmit={handleSearch} className="mx-auto mt-10 max-w-2xl">
           <div className="flex gap-2 rounded-full bg-white p-2 shadow-lg">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="ค้นหาทำเล, ชื่อโครงการ, จังหวัด..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 className="w-full border-0 pl-12 text-base focus-visible:ring-0 shadow-none"
               />
             </div>
-            <Button className="rounded-full bg-blue-900 px-8 hover:bg-blue-800">
+            <Button type="submit" className="rounded-full bg-blue-900 px-8 hover:bg-blue-800">
               ค้นหา
             </Button>
           </div>
-        </div>
+        </form>
 
         {/* Quick filter chips */}
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-          {["บ้านเดี่ยว", "คอนโด", "ทาวน์เฮาส์", "ที่ดิน", "อาคารพาณิชย์"].map((label) => (
+          {quickFilters.map(({ label, type }) => (
             <button
-              key={label}
+              key={type}
+              onClick={() => handleTypeFilter(type)}
               className="rounded-full border border-white/30 px-4 py-1.5 text-sm text-white/90 transition hover:bg-white/10"
             >
               {label}
@@ -61,11 +95,7 @@ export default function HeroSection() {
           ))}
 
           {/* Location filter modal — แผนที่ประเทศไทย */}
-          <LocationFilterModal
-            onSelect={(sel) => {
-              console.log("Selected location:", sel);
-            }}
-          />
+          <LocationFilterModal onSelect={handleLocationSelect} />
         </div>
       </div>
     </section>

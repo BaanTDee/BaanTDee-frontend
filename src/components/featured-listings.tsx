@@ -1,59 +1,39 @@
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import ListingCard from "@/components/listing-card";
+"use client";
 
-// Mock featured listings
-const featuredListings = [
-  {
-    title: "บ้านเดี่ยว โครงการหรู พร้อมสระ",
-    location: "บางนา กรุงเทพฯ",
-    price: "12,500,000",
-    image: "/placeholder-house.svg",
-    tag: "PREMIUM" as const,
-    ownerType: "เจ้าของขายเอง",
-  },
-  {
-    title: "คอนโดวิวทะเล ชั้น 25",
-    location: "ศรีราชา ชลบุรี",
-    price: "4,800,000",
-    image: "/placeholder-house.svg",
-    tag: "HOT" as const,
-    ownerType: "นายหน้า",
-  },
-  {
-    title: "ทาวน์เฮาส์ 3 ชั้น ใกล้ BTS",
-    location: "ลาดพร้าว กรุงเทพฯ",
-    price: "5,500,000",
-    image: "/placeholder-house.svg",
-    tag: "NEW" as const,
-    ownerType: "เจ้าของขายเอง",
-  },
-  {
-    title: "ที่ดินเปล่า 100 ตรว ใกล้ถนนใหญ่",
-    location: "เมือง นครราชสีมา",
-    price: "2,000,000",
-    image: "/placeholder-house.svg",
-    tag: "HOT" as const,
-  },
-  {
-    title: "อาคารพาณิชย์ 4 ชั้น ติดถนน",
-    location: "หาดใหญ่ สงขลา",
-    price: "9,800,000",
-    image: "/placeholder-house.svg",
-    tag: "PREMIUM" as const,
-    ownerType: "นายหน้า",
-  },
-  {
-    title: "บ้านสวน พร้อมที่ดิน 1 ไร่",
-    location: "สันทราย เชียงใหม่",
-    price: "6,300,000",
-    image: "/placeholder-house.svg",
-    tag: "NEW" as const,
-    ownerType: "เจ้าของขายเอง",
-  },
-];
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { ChevronRight, Loader2 } from "lucide-react";
+import ListingCard from "@/components/listing-card";
+import { getListings, formatPrice } from "@/lib/api";
+import type { ListingSummary } from "@/lib/types";
 
 export default function FeaturedListings() {
+  const [listings, setListings] = useState<ListingSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchFeatured() {
+      try {
+        // Backend doesn't have a dedicated "featured" flag query,
+        // so we fetch the first page and take featured ones.
+        // If backend adds ?featured=true param later, just switch here.
+        const res = await getListings({ per_page: 20 });
+        if (res.success && Array.isArray(res.data)) {
+          const featured = res.data.filter((l) => l.is_featured);
+          setListings(featured.length > 0 ? featured.slice(0, 8) : res.data.slice(0, 6));
+        } else {
+          setListings([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch featured listings:', err);
+        setListings([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFeatured();
+  }, []);
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-12">
       {/* Header */}
@@ -69,9 +49,30 @@ export default function FeaturedListings() {
 
       {/* Scrollable listing cards */}
       <div className="mt-6 flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-        {featuredListings.map((listing, i) => (
-          <ListingCard key={i} {...listing} />
-        ))}
+        {loading ? (
+          <div className="flex w-full items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
+          </div>
+        ) : Array.isArray(listings) && listings.length > 0 ? (
+          listings.map((listing) => (
+            <ListingCard
+              key={listing.id}
+              id={listing.id}
+              slug={listing.slug}
+              title={listing.title}
+              location={`${listing.district} ${listing.province}`}
+              price={formatPrice(listing.price)}
+              image={listing.cover_url || "/placeholder-house.svg"}
+              tag="PREMIUM"
+              offer={listing.offer}
+              type={listing.type}
+            />
+          ))
+        ) : (
+          <p className="w-full py-12 text-center text-muted-foreground">
+            ยังไม่มีประกาศแนะนำ
+          </p>
+        )}
       </div>
     </section>
   );

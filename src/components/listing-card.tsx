@@ -1,38 +1,79 @@
+"use client";
+
 import Image from "next/image";
+import Link from "next/link";
 import { Heart, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/context/auth-context";
+import { addFavorite, removeFavorite } from "@/lib/api";
+import { useState } from "react";
 
-interface ListingCardProps {
+export interface ListingCardProps {
+  id?: number;
+  slug?: string;
   title: string;
   location: string;
   price: string;
   image: string;
   tag?: "HOT" | "PREMIUM" | "NEW";
   ownerType?: string;
+  offer?: string;
+  type?: string;
+  isFavorited?: boolean;
 }
 
 export default function ListingCard({
+  id,
+  slug,
   title,
   location,
   price,
   image,
   tag,
   ownerType,
+  offer,
+  isFavorited: initialFav = false,
 }: ListingCardProps) {
+  const { user } = useAuth();
+  const [favorited, setFavorited] = useState(initialFav);
+
   const tagColors = {
     HOT: "bg-red-500 text-white",
     PREMIUM: "bg-blue-900 text-white",
     NEW: "bg-green-500 text-white",
   };
 
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user || !id) return;
+    try {
+      if (favorited) {
+        await removeFavorite(id);
+        setFavorited(false);
+      } else {
+        await addFavorite(id);
+        setFavorited(true);
+      }
+    } catch {
+      // silently fail
+    }
+  };
+
+  const href = slug ? `/listings/${slug}` : "#";
+
+  // Offer badge text
+  const offerText = offer === "rent" ? "เช่า" : offer === "sale_rent" ? "ขาย/เช่า" : null;
+
   return (
-    <div className="group min-w-[220px] max-w-[280px] flex-shrink-0 cursor-pointer">
+    <Link href={href} className="group min-w-[220px] max-w-[280px] flex-shrink-0 cursor-pointer block">
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-200">
         <Image
           src={image}
           alt={title}
           fill
+          sizes="280px"
           className="object-cover transition group-hover:scale-105"
         />
 
@@ -43,9 +84,27 @@ export default function ListingCard({
           </Badge>
         )}
 
+        {/* Offer badge */}
+        {offerText && (
+          <Badge className="absolute left-2 bottom-8 text-xs bg-emerald-600 text-white">
+            {offerText}
+          </Badge>
+        )}
+
         {/* Favorite button */}
-        <button className="absolute right-2 top-2 rounded-full bg-white/80 p-1.5 opacity-0 transition group-hover:opacity-100 hover:bg-white">
-          <Heart className="h-4 w-4 text-gray-600" />
+        <button
+          onClick={handleFavorite}
+          className={`absolute right-2 top-2 rounded-full p-1.5 transition ${
+            favorited
+              ? "bg-red-50 opacity-100"
+              : "bg-white/80 opacity-0 group-hover:opacity-100 hover:bg-white"
+          }`}
+        >
+          <Heart
+            className={`h-4 w-4 ${
+              favorited ? "fill-red-500 text-red-500" : "text-gray-600"
+            }`}
+          />
         </button>
 
         {/* Owner type */}
@@ -71,6 +130,6 @@ export default function ListingCard({
           ฿ {price}
         </p>
       </div>
-    </div>
+    </Link>
   );
 }

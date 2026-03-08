@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft, LayoutGrid, Map } from "lucide-react";
 import ThailandRegionMap from "@/components/thailand-region-map";
 import RegionProvinceMap from "@/components/region-province-map";
@@ -19,6 +20,7 @@ const REGION_COLORS: Record<string, string> = {
 };
 
 export default function HomeMapSection() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("region");
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedRegionName, setSelectedRegionName] = useState<string | null>(null);
@@ -39,13 +41,11 @@ export default function HomeMapSection() {
   };
 
   const handleSelectProvinceFromMap = (provinceId: string, provinceName: string) => {
-    // TODO: navigate to search results filtered by province
-    console.log("Selected province:", provinceId, provinceName);
+    router.push(`/search?province=${encodeURIComponent(provinceName)}`);
   };
 
   const handleSelectProvince = (province: Province) => {
-    // TODO: navigate to search results filtered by province
-    console.log("Selected province:", province.name);
+    router.push(`/search?province=${encodeURIComponent(province.name)}`);
   };
 
   const selectedRegionData = regions.find((r) => r.id === selectedRegionId);
