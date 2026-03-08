@@ -101,31 +101,66 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
-      // ถ้าเป็น Facebook login - ต้องสร้าง/เช็ค user ใน backend
+      // ถ้าเป็น Facebook login - เรียก backend endpoint
       if (account?.provider === "facebook") {
         try {
-          // TODO: เพิ่ม endpoint POST /auth/facebook ใน backend
-          // ที่รับ { access_token, facebook_id, name, email }
-          // และ return JWT token เหมือน /auth/login
+          const res = await fetch(`${API_URL}/auth/facebook`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              facebook_id: profile?.id,
+              access_token: account.access_token,
+              name: user.name || "",
+              email: user.email || "",
+              avatar: user.image || null,
+            }),
+          });
 
-          // ตอนนี้ skip - ให้ NextAuth จัดการเอง
-          // User จะเก็บใน NextAuth session แต่จะไม่มี backend JWT
-          return true;
+          const data: BackendAuthResponse = await res.json();
+
+          if (data.success && data.data) {
+            // Store backend tokens in user object (will be available in jwt callback)
+            (user as any).backendAccessToken = data.data.access_token;
+            (user as any).backendRefreshToken = data.data.refresh_token;
+            (user as any).backendUser = data.data.user;
+            return true;
+          }
+
+          console.error("Facebook backend login failed:", data.error);
+          return false;
         } catch (error) {
           console.error("Facebook signup error:", error);
           return false;
         }
       }
 
-      // ถ้าเป็น Google login - ต้องสร้าง/เช็ค user ใน backend
+      // ถ้าเป็น Google login - เรียก backend endpoint
       if (account?.provider === "google") {
         try {
-          // TODO: เพิ่ม endpoint POST /auth/google ใน backend
-          // ที่รับ { access_token, google_id, name, email }
-          // และ return JWT token เหมือน /auth/login
+          const res = await fetch(`${API_URL}/auth/google`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              google_id: profile?.sub,
+              access_token: account.access_token,
+              name: user.name || "",
+              email: user.email || "",
+              avatar: user.image || null,
+            }),
+          });
 
-          // ตอนนี้ skip - ให้ NextAuth จัดการเอง
-          return true;
+          const data: BackendAuthResponse = await res.json();
+
+          if (data.success && data.data) {
+            // Store backend tokens in user object (will be available in jwt callback)
+            (user as any).backendAccessToken = data.data.access_token;
+            (user as any).backendRefreshToken = data.data.refresh_token;
+            (user as any).backendUser = data.data.user;
+            return true;
+          }
+
+          console.error("Google backend login failed:", data.error);
+          return false;
         } catch (error) {
           console.error("Google signup error:", error);
           return false;
@@ -144,13 +179,17 @@ export const authOptions: NextAuthOptions = {
           token.refreshToken = (user as any).refreshToken;
           token.backendUser = (user as any).backendUser;
         } else if (account.provider === "facebook") {
-          // Facebook login - ยังไม่มี backend integration
+          // Facebook login - มี backend token จาก signIn callback
           token.provider = "facebook";
-          token.facebookToken = account.access_token;
+          token.accessToken = (user as any).backendAccessToken;
+          token.refreshToken = (user as any).backendRefreshToken;
+          token.backendUser = (user as any).backendUser;
         } else if (account.provider === "google") {
-          // Google login - ยังไม่มี backend integration
+          // Google login - มี backend token จาก signIn callback
           token.provider = "google";
-          token.googleToken = account.access_token;
+          token.accessToken = (user as any).backendAccessToken;
+          token.refreshToken = (user as any).backendRefreshToken;
+          token.backendUser = (user as any).backendUser;
         }
       }
 
