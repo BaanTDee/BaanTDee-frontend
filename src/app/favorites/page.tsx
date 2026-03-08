@@ -2,22 +2,22 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Loader2, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ListingCard from "@/components/listing-card";
 import { getFavorites, formatPrice } from "@/lib/api";
 import type { FavoriteItem, PaginationMeta } from "@/lib/types";
-import { useAuth } from "@/context/auth-context";
 
 export default function FavoritesPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { data: session, status } = useSession();
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (!user) return;
+    if (!session?.user) return;
     async function fetchFavs() {
       setLoading(true);
       try {
@@ -33,9 +33,9 @@ export default function FavoritesPage() {
       }
     }
     fetchFavs();
-  }, [user, page]);
+  }, [session, page]);
 
-  if (authLoading) {
+  if (status === "loading") {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
@@ -43,7 +43,7 @@ export default function FavoritesPage() {
     );
   }
 
-  if (!user) {
+  if (!session?.user) {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <Heart className="mx-auto h-12 w-12 text-gray-300" />

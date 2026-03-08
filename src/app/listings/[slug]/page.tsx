@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -33,12 +34,11 @@ import {
   offerLabel,
 } from "@/lib/api";
 import type { ListingDetailResponse, InquiryBody } from "@/lib/types";
-import { useAuth } from "@/context/auth-context";
 
 export default function ListingDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const { user } = useAuth();
+  const { data: session } = useSession();
 
   const [data, setData] = useState<ListingDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,15 +75,18 @@ export default function ListingDetailPage() {
 
   // Pre-fill inquiry form with user data
   useEffect(() => {
-    if (user) {
-      setInquiryName(user.name);
-      setInquiryEmail(user.email);
-      setInquiryPhone(user.phone || "");
+    if (session?.user) {
+      setInquiryName(session.user.name || "");
+      setInquiryEmail(session.user.email || "");
+      const backendUser = (session as any).backendUser;
+      if (backendUser?.phone) {
+        setInquiryPhone(backendUser.phone);
+      }
     }
-  }, [user]);
+  }, [session]);
 
   const handleFavorite = async () => {
-    if (!user || !data) return;
+    if (!session?.user || !data) return;
     try {
       if (favorited) {
         await removeFavorite(data.listing.id);

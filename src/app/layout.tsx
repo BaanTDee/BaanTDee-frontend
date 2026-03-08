@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import { AuthProvider } from "@/context/auth-context";
+import SessionProvider from "@/components/session-provider";
 
 const notoSansThai = Noto_Sans_Thai({
   variable: "--font-noto-thai",
@@ -25,11 +26,13 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={`${notoSansThai.variable} font-sans antialiased`}>
-        <AuthProvider>
-          <Navbar />
-          <main className="min-h-screen">{children}</main>
-          <Footer />
-        </AuthProvider>
+        <SessionProvider>
+          <AuthProvider>
+            <Navbar />
+            <main className="min-h-screen">{children}</main>
+            <Footer />
+          </AuthProvider>
+        </SessionProvider>
       </body>
     </html>
   );

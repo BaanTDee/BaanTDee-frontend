@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Heart, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/context/auth-context";
+import { useSession } from "next-auth/react";
 import { addFavorite, removeFavorite } from "@/lib/api";
 import { useState } from "react";
 
@@ -34,7 +34,7 @@ export default function ListingCard({
   offer,
   isFavorited: initialFav = false,
 }: ListingCardProps) {
-  const { user } = useAuth();
+  const { data: session } = useSession();
   const [favorited, setFavorited] = useState(initialFav);
 
   const tagColors = {
@@ -46,7 +46,7 @@ export default function ListingCard({
   const handleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user || !id) return;
+    if (!session?.user || !id) return;
     try {
       if (favorited) {
         await removeFavorite(id);

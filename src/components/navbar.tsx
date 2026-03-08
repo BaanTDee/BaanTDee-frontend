@@ -3,13 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { Search, Heart, MessageCircle, Menu, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/context/auth-context";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { data: session } = useSession();
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -18,6 +18,10 @@ export default function Navbar() {
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/" });
   };
 
   return (
@@ -46,7 +50,7 @@ export default function Navbar() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
-          {user && (
+          {session?.user && (
             <Link href="/favorites">
               <Button variant="ghost" size="icon" className="hidden md:flex">
                 <Heart className="h-5 w-5 text-gray-600" />
@@ -57,14 +61,14 @@ export default function Navbar() {
             <MessageCircle className="h-5 w-5 text-gray-600" />
           </Button>
 
-          {user ? (
+          {session?.user ? (
             <div className="hidden md:flex items-center gap-3">
               <div className="flex items-center gap-1.5 text-sm text-gray-700">
                 <User className="h-4 w-4" />
-                <span className="max-w-[120px] truncate">{user.name}</span>
+                <span className="max-w-[120px] truncate">{session.user.name || session.user.email}</span>
               </div>
               <button
-                onClick={() => logout()}
+                onClick={handleLogout}
                 className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 transition"
               >
                 <LogOut className="h-4 w-4" />
@@ -82,7 +86,7 @@ export default function Navbar() {
             </div>
           )}
 
-          <Link href={user ? "/listings/create" : "/login"}>
+          <Link href={session?.user ? "/listings/create" : "/login"}>
             <Button className="ml-2 rounded-full bg-blue-900 hover:bg-blue-800 text-white px-6">
               ลงประกาศ
             </Button>
