@@ -30,10 +30,10 @@ export default function HeroSection() {
     router.push(`/search?type=${type}`);
   };
 
-  const handleLocationSelect = (sel: { regionId?: string; regionName?: string; provinceName?: string }) => {
+  const handleLocationSelect = (sel: { region?: string; province?: string }) => {
     const params = new URLSearchParams();
-    if (sel.provinceName) params.set("province", sel.provinceName);
-    else if (sel.regionId) params.set("region", sel.regionId);
+    if (sel.province) params.set("province", sel.province);
+    else if (sel.region) params.set("region", sel.region);
     router.push(`/search?${params.toString()}`);
   };
 

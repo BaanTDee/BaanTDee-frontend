@@ -36,7 +36,10 @@ REGION_MULTI_COLORS = {
 
 # After connected components (sorted by Y then X), merge these index pairs.
 # Use when a single province is split into 2 disconnected pieces by a map artifact.
-REGION_MERGE = {}
+REGION_MERGE = {
+    # southern: songkhla is split into 2 disconnected parts [7]+[11]
+    "southern": [(7, 11)],
+}
 
 # Province names per area index (sorted by centroid Y then X, same order the script emits).
 # Each entry: (province_id, thai_name, english_name)
@@ -101,10 +104,11 @@ REGION_PROVINCE_NAMES = {
         ("prachinburi",         "ปราจีนบุรี",             "Prachin Buri"),
         ("sakaeo",              "สระแก้ว",               "Sa Kaeo"),
         ("samutprakan",         "สมุทรปราการ",            "Samut Prakan"),
-        ("ratchaburi",          "ราชบุรี",               "Ratchaburi"),
-        ("samutsakhon",         "สมุทรสาคร",             "Samut Sakhon"),
-        ("phetchaburi",         "เพชรบุรี",               "Phetchaburi"),
-        ("prachuapkhirikhan",   "ประจวบคีรีขันธ์",         "Prachuap Khiri Khan"),
+        ("samutsakhon",         "สมุทรสาคร",             "Samut Sakhon"),      # [17] centroid ~42.9%,83.3%
+        ("ratchaburi",          "ราชบุรี",               "Ratchaburi"),        # [18] centroid ~29.9%,84.0%
+        ("samutsongkhram",      "สมุทรสงคราม",            "Samut Songkhram"),   # [19] new tiny area ~37.5%,86.6%
+        ("phetchaburi",         "เพชรบุรี",               "Phetchaburi"),       # [20] centroid ~30.5%,96.8%
+        ("prachuapkhirikhan",   "ประจวบคีรีขันธ์",         "Prachuap Khiri Khan"), # [21] centroid ~30.7%,117.7%
     ],
     "eastern": [
         ("chonburi",        "ชลบุรี",                 "Chon Buri"),
@@ -113,20 +117,21 @@ REGION_PROVINCE_NAMES = {
         ("trat",            "ตราด",                   "Trat"),
     ],
     "southern": [
-        ("chumphon",            "ชุมพร",               "Chumphon"),
-        ("ranong",              "ระนอง",               "Ranong"),
-        ("suratthani",          "สุราษฎร์ธานี",          "Surat Thani"),
-        ("phangnga",            "พังงา",               "Phang Nga"),
-        ("nakhonsithammarat",   "นครศรีธรรมราช",         "Nakhon Si Thammarat"),
-        ("phuket",              "ภูเก็ต",               "Phuket"),
-        ("phatthalung",         "พัทลุง",               "Phatthalung"),
-        ("krabi",               "กระบี่",               "Krabi"),
-        ("trang",               "ตรัง",                "Trang"),
-        ("satun",               "สตูล",                "Satun"),
-        ("songkhla",            "สงขลา",               "Songkhla"),
-        ("pattani",             "ปัตตานี",              "Pattani"),
-        ("yala",                "ยะลา",                "Yala"),
-        ("narathiwat",          "นราธิวาส",             "Narathiwat"),
+        # 14 provinces — only songkhla merged (7+11)
+        ("chumphon",            "\u0e0a\u0e38\u0e21\u0e1e\u0e23",               "Chumphon"),           # [0] (24.4%, 39.2%)
+        ("ranong",              "\u0e23\u0e30\u0e19\u0e2d\u0e07",               "Ranong"),             # [1] (16.1%, 48.1%)
+        ("suratthani",          "\u0e2a\u0e38\u0e23\u0e32\u0e29\u0e0e\u0e23\u0e4c\u0e18\u0e32\u0e19\u0e35",          "Surat Thani"),        # [2] (23.9%, 71.9%)
+        ("phangnga",            "\u0e1e\u0e31\u0e07\u0e07\u0e32",               "Phang Nga"),          # [3] (8.1%, 79.9%) — single area, no merge
+        ("nakhonsithammarat",   "\u0e19\u0e04\u0e23\u0e28\u0e23\u0e35\u0e18\u0e23\u0e23\u0e21\u0e23\u0e32\u0e0a",         "Nakhon Si Thammarat"), # [4] (41.2%, 87.6%)
+        ("krabi",               "\u0e01\u0e23\u0e30\u0e1a\u0e35\u0e48",               "Krabi"),              # [5] (22.3%, 91.9%)
+        ("phuket",              "\u0e20\u0e39\u0e40\u0e01\u0e47\u0e15",               "Phuket"),             # [6] (6.3%, 97.2%)
+        ("songkhla",            "\u0e2a\u0e07\u0e02\u0e25\u0e32",               "Songkhla"),           # [7]+[11] merged
+        ("trang",               "\u0e15\u0e23\u0e31\u0e07",                "Trang"),              # [8] (36.8%, 107.7%)
+        ("phatthalung",         "\u0e1e\u0e31\u0e17\u0e25\u0e38\u0e07",               "Phatthalung"),        # [9] (46.9%, 108.7%)
+        ("satun",               "\u0e2a\u0e15\u0e39\u0e25",                "Satun"),              # [10] (44.6%, 124.4%)
+        ("pattani",             "\u0e1b\u0e31\u0e15\u0e15\u0e32\u0e19\u0e35",              "Pattani"),            # [12] (79.1%, 127.7%)
+        ("yala",                "\u0e22\u0e30\u0e25\u0e32",                "Yala"),               # [13] (76.2%, 141.0%)
+        ("narathiwat",          "\u0e19\u0e23\u0e32\u0e18\u0e34\u0e27\u0e32\u0e2a",             "Narathiwat"),         # [14] (88.0%, 141.1%)
     ],
 }
 
