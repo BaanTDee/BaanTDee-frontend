@@ -24,9 +24,9 @@ export const regions: Region[] = [
     id: "northern",
     name: "ภาคเหนือ",
     nameEn: "Northern",
-    color: "#F59E0B",
-    colorEnd: "#D97706",
-    hoverColor: "#B45309",
+    color: "#3DB849",
+    colorEnd: "#2D9137",
+    hoverColor: "#237028",
     provinces: [
       {
         name: "เชียงใหม่",
@@ -119,9 +119,9 @@ export const regions: Region[] = [
     id: "northeastern",
     name: "ภาคตะวันออกเฉียงเหนือ",
     nameEn: "Northeastern",
-    color: "#EC4899",
-    colorEnd: "#DB2777",
-    hoverColor: "#BE185D",
+    color: "#DC3A5C",
+    colorEnd: "#C52848",
+    hoverColor: "#A81E3A",
     provinces: [
       {
         name: "นครราชสีมา",
@@ -343,9 +343,9 @@ export const regions: Region[] = [
     id: "central",
     name: "ภาคกลาง",
     nameEn: "Central",
-    color: "#8B5CF6",
-    colorEnd: "#7C3AED",
-    hoverColor: "#6D28D9",
+    color: "#D27B36",
+    colorEnd: "#BC6824",
+    hoverColor: "#A5581A",
     provinces: [
       {
         name: "กรุงเทพมหานคร",
@@ -535,9 +535,9 @@ export const regions: Region[] = [
     id: "eastern",
     name: "ภาคตะวันออก",
     nameEn: "Eastern",
-    color: "#3B82F6",
-    colorEnd: "#2563EB",
-    hoverColor: "#1D4ED8",
+    color: "#2AB1A3",
+    colorEnd: "#1D9B8E",
+    hoverColor: "#14827A",
     provinces: [
       {
         name: "ชลบุรี",
@@ -601,77 +601,12 @@ export const regions: Region[] = [
     ],
   },
   {
-    id: "western",
-    name: "ภาคตะวันตก",
-    nameEn: "Western",
-    color: "#10B981",
-    colorEnd: "#059669",
-    hoverColor: "#047857",
-    provinces: [
-      {
-        name: "กาญจนบุรี",
-        districts: [
-          { name: "เมืองกาญจนบุรี" }, { name: "ไทรโยค" }, { name: "บ่อพลอย" },
-          { name: "ศรีสวัสดิ์" }, { name: "ท่ามะกา" }, { name: "ท่าม่วง" },
-          { name: "ทองผาภูมิ" }, { name: "สังขละบุรี" }, { name: "พนมทวน" },
-          { name: "เลาขวัญ" }, { name: "ด่านมะขามเตี้ย" }, { name: "หนองปรือ" },
-          { name: "ห้วยกระเจา" },
-        ],
-      },
-      {
-        name: "ราชบุรี",
-        districts: [
-          { name: "เมืองราชบุรี" }, { name: "จอมบึง" }, { name: "สวนผึ้ง" },
-          { name: "ดำเนินสะดวก" }, { name: "บ้านโป่ง" }, { name: "บางแพ" },
-          { name: "โพธาราม" }, { name: "ปากท่อ" }, { name: "วัดเพลง" },
-          { name: "บ้านคา" },
-        ],
-      },
-      {
-        name: "เพชรบุรี",
-        districts: [
-          { name: "เมืองเพชรบุรี" }, { name: "เขาย้อย" }, { name: "หนองหญ้าปล้อง" },
-          { name: "ชะอำ" }, { name: "ท่ายาง" }, { name: "บ้านลาด" },
-          { name: "บ้านแหลม" }, { name: "แก่งกระจาน" },
-        ],
-      },
-      {
-        name: "ประจวบคีรีขันธ์",
-        districts: [
-          { name: "เมืองประจวบฯ" }, { name: "กุยบุรี" }, { name: "ทับสะแก" },
-          { name: "บางสะพาน" }, { name: "บางสะพานน้อย" }, { name: "ปราณบุรี" },
-          { name: "หัวหิน" }, { name: "สามร้อยยอด" },
-        ],
-      },
-      {
-        name: "สมุทรสาคร",
-        districts: [
-          { name: "เมืองสมุทรสาคร" }, { name: "กระทุ่มแบน" }, { name: "บ้านแพ้ว" },
-        ],
-      },
-      {
-        name: "สมุทรสงคราม",
-        districts: [
-          { name: "เมืองสมุทรสงคราม" }, { name: "บางคนที" }, { name: "อัมพวา" },
-        ],
-      },
-      {
-        name: "ตาก",
-        districts: [
-          { name: "เมืองตาก" }, { name: "บ้านตาก" }, { name: "สามเงา" },
-          { name: "แม่ระมาด" }, { name: "ท่าสองยาง" }, { name: "แม่สอด" },
-          { name: "พบพระ" }, { name: "อุ้มผาง" }, { name: "วังเจ้า" },
-        ],
-      },
-    ],
-  },
-  {
     id: "southern",
     name: "ภาคใต้",
     nameEn: "Southern",
-    color: "#22C55E",
-    colorEnd: "#16A34A",
-    hoverColor: "#15803D",
+    color: "#0D1E83",
+    colorEnd: "#091669",
+    hoverColor: "#060F52",
     provinces: [
       {
         name: "สุราษฎร์ธานี",

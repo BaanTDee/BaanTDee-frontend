@@ -118,9 +118,9 @@ export default function HomeMapSection() {
               {/* Back button */}
               <button
                 onClick={handleBack}
-                className="mb-4 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-blue-600 transition hover:bg-blue-50"
+                className="mb-4 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4" />
                 กลับ
               </button>
 
@@ -129,24 +129,24 @@ export default function HomeMapSection() {
                 <div className="mb-4 flex rounded-lg border border-gray-200 overflow-hidden bg-white">
                   <button
                     onClick={() => setProvinceView("map")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${
                       provinceView === "map"
                         ? "bg-blue-600 text-white"
                         : "text-gray-500 hover:bg-gray-50"
                     }`}
                   >
-                    <Map className="h-3 w-3" />
+                    <Map className="h-4 w-4" />
                     แผนที่
                   </button>
                   <button
                     onClick={() => setProvinceView("grid")}
-                    className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-semibold transition ${
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${
                       provinceView === "grid"
                         ? "bg-blue-600 text-white"
                         : "text-gray-500 hover:bg-gray-50"
                     }`}
                   >
-                    <LayoutGrid className="h-3 w-3" />
+                    <LayoutGrid className="h-4 w-4" />
                     รายการ
                   </button>
                 </div>
@@ -163,7 +163,7 @@ export default function HomeMapSection() {
                       <button
                         key={province.name}
                         onClick={() => handleSelectProvince(province)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-gray-700 transition hover:bg-white hover:shadow-sm hover:text-blue-700"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-3 text-left text-sm text-gray-700 transition hover:bg-white hover:shadow-sm hover:text-blue-700"
                       >
                         {province.name}
                       </button>
@@ -178,11 +178,11 @@ export default function HomeMapSection() {
         {/* Map area */}
         <div className="flex-1 min-w-0 p-3">
           {step === "region" ? (
-            <div className="mx-auto max-w-xs">
+            <div className="mx-auto w-full max-w-[460px]">
               <ThailandRegionMap onSelectRegion={handleSelectRegion} />
             </div>
           ) : provinceView === "map" && hasProvinceMapData && selectedRegionId ? (
-            <div className="mx-auto max-w-xs">
+            <div className="mx-auto w-full max-w-[460px]">
               <RegionProvinceMap
                 regionId={selectedRegionId}
                 onSelectProvince={handleSelectProvinceFromMap}
