@@ -20,9 +20,8 @@ export default function RegionProvinceMap({
 
   const regionData = REGION_PROVINCE_MAP[regionId];
 
-  // Fallback: show province grid if no polygon data yet
   if (!regionData || regionData.provinces.length === 0) {
-    return null; // caller will render province grid fallback
+    return null;
   }
 
   const { imageFile, provinces } = regionData;
@@ -47,13 +46,13 @@ export default function RegionProvinceMap({
 
           return (
             <g key={province.id}>
+              {/* Single polygon — transparent stroke extends hit area over red border */}
               <polygon
                 points={province.points}
                 fill="#ffffff"
-                fillOpacity={isHovered ? 0.45 : 0.01}
-                stroke="#ffffff"
-                strokeWidth={isHovered ? 0.5 : 0.2}
-                strokeOpacity={isHovered ? 0.9 : 0.3}
+                fillOpacity={isHovered ? 0.4 : 0}
+                stroke="transparent"
+                strokeWidth={2}
                 className="cursor-pointer transition-all duration-100"
                 onMouseEnter={() => setHoveredId(province.id)}
                 onMouseLeave={() => setHoveredId(null)}
