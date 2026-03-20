@@ -17,12 +17,12 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Proxy API calls to backend during development (avoid CORS)
+  // Proxy API calls to backend (exclude /api/auth which is handled by NextAuth)
   async rewrites() {
     return [
       {
-        source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/:path*`,
+        source: "/api/:path((?!auth).*)",
+        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api"}/:path`,
       },
     ];
   },
