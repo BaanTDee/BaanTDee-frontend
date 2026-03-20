@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
@@ -20,12 +20,18 @@ import {
   Phone,
   Mail,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ExternalLink,
 } from "lucide-react";
+import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   getListingBySlug,
+  getListings,
   sendInquiry,
   addFavorite,
   removeFavorite,
@@ -33,7 +39,11 @@ import {
   typeLabel,
   offerLabel,
 } from "@/lib/api";
-import type { ListingDetailResponse, InquiryBody } from "@/lib/types";
+import type { ListingDetailResponse, ListingSummary, InquiryBody } from "@/lib/types";
+
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+
+const mapContainerStyle = { width: "100%", height: "400px" };
 
 export default function ListingDetailPage() {
   const params = useParams();
@@ -45,6 +55,8 @@ export default function ListingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [favorited, setFavorited] = useState(false);
+  const [showInfoWindow, setShowInfoWindow] = useState(true);
+  const [relatedListings, setRelatedListings] = useState<ListingSummary[]>([]);
 
   // Inquiry form
   const [inquiryName, setInquiryName] = useState("");
@@ -54,6 +66,10 @@ export default function ListingDetailPage() {
   const [inquirySending, setInquirySending] = useState(false);
   const [inquirySent, setInquirySent] = useState(false);
 
+  const { isLoaded: mapsLoaded } = useJsApiLoader({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+  });
+
   useEffect(() => {
     async function fetchListing() {
       setLoading(true);
@@ -61,6 +77,16 @@ export default function ListingDetailPage() {
         const res = await getListingBySlug(slug);
         if (res.success) {
           setData(res.data);
+          // Fetch related listings from same province
+          const related = await getListings({
+            province: res.data.listing.province,
+            per_page: 6,
+          });
+          if (related.success) {
+            setRelatedListings(
+              related.data.filter((l) => l.slug !== slug).slice(0, 4)
+            );
+          }
         } else {
           setError(res.error.message);
         }
@@ -73,12 +99,13 @@ export default function ListingDetailPage() {
     if (slug) fetchListing();
   }, [slug]);
 
-  // Pre-fill inquiry form with user data
   useEffect(() => {
     if (session?.user) {
       setInquiryName(session.user.name || "");
       setInquiryEmail(session.user.email || "");
-      const backendUser = (session as any).backendUser;
+      const backendUser = (session as Record<string, unknown>).backendUser as
+        | { phone?: string }
+        | undefined;
       if (backendUser?.phone) {
         setInquiryPhone(backendUser.phone);
       }
@@ -123,6 +150,20 @@ export default function ListingDetailPage() {
     }
   };
 
+  const prevImage = useCallback(() => {
+    if (!data) return;
+    setSelectedImage((prev) =>
+      prev === 0 ? data.images.length - 1 : prev - 1
+    );
+  }, [data]);
+
+  const nextImage = useCallback(() => {
+    if (!data) return;
+    setSelectedImage((prev) =>
+      prev === data.images.length - 1 ? 0 : prev + 1
+    );
+  }, [data]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -135,7 +176,9 @@ export default function ListingDetailPage() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <h2 className="text-xl font-bold text-gray-900">ไม่พบประกาศ</h2>
-        <p className="mt-2 text-muted-foreground">{error || "ประกาศนี้อาจถูกลบหรือไม่มีอยู่ในระบบ"}</p>
+        <p className="mt-2 text-muted-foreground">
+          {error || "ประกาศนี้อาจถูกลบหรือไม่มีอยู่ในระบบ"}
+        </p>
         <Link href="/search">
           <Button className="mt-4">กลับไปค้นหา</Button>
         </Link>
@@ -144,162 +187,386 @@ export default function ListingDetailPage() {
   }
 
   const { listing, images, facilities } = data;
-  const coverImage = images.find((img) => img.is_cover) || images[0];
+  const hasCoords = listing.latitude != null && listing.longitude != null;
+  const mapCenter = hasCoords
+    ? { lat: listing.latitude!, lng: listing.longitude! }
+    : { lat: 13.7563, lng: 100.5018 };
+  const fullAddress = [
+    listing.address,
+    listing.subdistrict,
+    listing.district,
+    listing.province,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const googleMapsUrl = hasCoords
+    ? `https://www.google.com/maps?q=${listing.latitude},${listing.longitude}`
+    : `https://www.google.com/maps/search/${encodeURIComponent(fullAddress)}`;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       {/* Back button */}
-      <Link href="/search" className="mb-4 inline-flex items-center gap-1 text-sm text-blue-900 hover:underline">
+      <Link
+        href="/search"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-blue-900 hover:underline"
+      >
         <ArrowLeft className="h-4 w-4" /> กลับไปค้นหา
       </Link>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        {/* Left — Images + Details */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Image gallery */}
-          <div className="space-y-2">
-            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gray-200">
-              {images.length > 0 ? (
+      {/* ===== MAIN: Image Gallery + Property Info ===== */}
+      <div className="grid gap-8 lg:grid-cols-5">
+        {/* Left — Image Gallery (3/5) */}
+        <div className="lg:col-span-3 space-y-3">
+          <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-200">
+            {images.length > 0 ? (
+              <>
                 <Image
-                  src={images[selectedImage]?.url || coverImage?.url || "/placeholder-house.svg"}
+                  src={images[selectedImage]?.url || "/placeholder-house.svg"}
                   alt={listing.title}
                   fill
                   className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 66vw"
+                  sizes="(max-width: 1024px) 100vw, 60vw"
+                  priority
                 />
-              ) : (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
-                  ไม่มีรูปภาพ
-                </div>
-              )}
-            </div>
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {images.map((img, i) => (
+                {/* Nav arrows */}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={prevImage}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow hover:bg-white transition"
+                    >
+                      <ChevronLeft className="h-5 w-5 text-gray-800" />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/80 p-2 shadow hover:bg-white transition"
+                    >
+                      <ChevronRight className="h-5 w-5 text-gray-800" />
+                    </button>
+                  </>
+                )}
+                {/* Bottom overlay buttons */}
+                <div className="absolute bottom-4 right-4 flex gap-2">
                   <button
-                    key={img.id}
-                    onClick={() => setSelectedImage(i)}
-                    className={`relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg border-2 ${
-                      i === selectedImage ? "border-blue-900" : "border-transparent"
-                    }`}
+                    onClick={() => {
+                      const el = document.getElementById("map-section");
+                      el?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="flex items-center gap-1.5 rounded-full bg-blue-900 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-800 transition"
                   >
-                    <Image src={img.url} alt="" fill className="object-cover" sizes="96px" />
+                    <MapPin className="h-4 w-4" /> ดูแผนที่
                   </button>
-                ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground">
+                ไม่มีรูปภาพ
               </div>
             )}
           </div>
-
-          {/* Title & badges */}
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-blue-900 text-white">{typeLabel(listing.type)}</Badge>
-              <Badge variant="outline">{offerLabel(listing.offer)}</Badge>
-              {listing.is_featured && <Badge className="bg-amber-500 text-white">PREMIUM</Badge>}
+          {/* Thumbnails */}
+          {images.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((img, i) => (
+                <button
+                  key={img.id}
+                  onClick={() => setSelectedImage(i)}
+                  className={`relative h-20 w-28 flex-shrink-0 overflow-hidden rounded-lg border-2 transition ${
+                    i === selectedImage
+                      ? "border-blue-900 ring-2 ring-blue-300"
+                      : "border-transparent opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  <Image
+                    src={img.url}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="112px"
+                  />
+                </button>
+              ))}
             </div>
-            <h1 className="mt-2 text-2xl font-bold text-gray-900 md:text-3xl">{listing.title}</h1>
-            <p className="mt-1 flex items-center gap-1 text-muted-foreground">
-              <MapPin className="h-4 w-4" />
-              {[listing.address, listing.subdistrict, listing.district, listing.province]
-                .filter(Boolean)
-                .join(", ")}
+          )}
+        </div>
+
+        {/* Right — Property Info (2/5) */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Type badge + Favorite */}
+          <div className="flex items-start justify-between">
+            <div className="flex flex-wrap gap-2">
+              <Badge className="bg-blue-900 text-white">
+                {typeLabel(listing.type)}
+              </Badge>
+              <Badge variant="outline">{offerLabel(listing.offer)}</Badge>
+              {listing.is_featured && (
+                <Badge className="bg-amber-500 text-white">PREMIUM</Badge>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleFavorite}
+                title={favorited ? "เอาออกจากรายการโปรด" : "บันทึกทรัพย์สิน"}
+              >
+                <Heart
+                  className={`h-4 w-4 ${
+                    favorited ? "fill-red-500 text-red-500" : ""
+                  }`}
+                />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigator.clipboard.writeText(window.location.href)}
+                title="แชร์"
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+              {listing.title}
+            </h1>
+            <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
+              <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              {fullAddress}
             </p>
+            {hasCoords && (
+              <p className="mt-1 text-xs text-muted-foreground/70">
+                พิกัด : {listing.latitude}, {listing.longitude}
+              </p>
+            )}
           </div>
 
           {/* Price */}
           <div className="rounded-lg bg-blue-50 p-4">
             <p className="text-3xl font-bold text-blue-900">
-              ฿ {formatPrice(listing.price)}
-              {listing.offer === "rent" && <span className="text-lg font-normal"> /เดือน</span>}
+              {formatPrice(listing.price)}{" "}
+              <span className="text-base font-normal text-blue-800">บาท</span>
+              {listing.offer === "rent" && (
+                <span className="text-lg font-normal"> /เดือน</span>
+              )}
             </p>
             {listing.price_rent && listing.offer === "sale_rent" && (
               <p className="mt-1 text-lg text-muted-foreground">
-                เช่า ฿ {formatPrice(listing.price_rent)} /เดือน
+                เช่า {formatPrice(listing.price_rent)} บาท/เดือน
               </p>
             )}
           </div>
 
           {/* Quick stats */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
+            {listing.area != null && (
+              <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                <Maximize className="h-5 w-5 text-blue-900" />
+                <div>
+                  <p className="text-sm text-muted-foreground">พื้นที่ใช้สอย</p>
+                  <p className="font-bold">
+                    {listing.area} <span className="text-sm font-normal">ตร.ม.</span>
+                  </p>
+                </div>
+              </div>
+            )}
+            {listing.land_area != null && (
+              <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                <Maximize className="h-5 w-5 text-blue-900" />
+                <div>
+                  <p className="text-sm text-muted-foreground">เนื้อที่</p>
+                  <p className="font-bold">
+                    {listing.land_area}{" "}
+                    <span className="text-sm font-normal">ตร.ว.</span>
+                  </p>
+                </div>
+              </div>
+            )}
             {listing.bedrooms != null && (
-              <div className="flex items-center gap-2 rounded-lg border p-3">
+              <div className="flex items-center gap-2.5 rounded-lg border p-3">
                 <Bed className="h-5 w-5 text-blue-900" />
                 <div>
-                  <p className="text-lg font-bold">{listing.bedrooms}</p>
-                  <p className="text-xs text-muted-foreground">ห้องนอน</p>
+                  <p className="text-sm text-muted-foreground">ห้องนอน</p>
+                  <p className="font-bold">{listing.bedrooms}</p>
                 </div>
               </div>
             )}
             {listing.bathrooms != null && (
-              <div className="flex items-center gap-2 rounded-lg border p-3">
+              <div className="flex items-center gap-2.5 rounded-lg border p-3">
                 <Bath className="h-5 w-5 text-blue-900" />
                 <div>
-                  <p className="text-lg font-bold">{listing.bathrooms}</p>
-                  <p className="text-xs text-muted-foreground">ห้องน้ำ</p>
-                </div>
-              </div>
-            )}
-            {listing.area != null && (
-              <div className="flex items-center gap-2 rounded-lg border p-3">
-                <Maximize className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-lg font-bold">{listing.area}</p>
-                  <p className="text-xs text-muted-foreground">ตร.ม.</p>
-                </div>
-              </div>
-            )}
-            {listing.parking != null && (
-              <div className="flex items-center gap-2 rounded-lg border p-3">
-                <Car className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-lg font-bold">{listing.parking}</p>
-                  <p className="text-xs text-muted-foreground">ที่จอดรถ</p>
+                  <p className="text-sm text-muted-foreground">ห้องน้ำ</p>
+                  <p className="font-bold">{listing.bathrooms}</p>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Extra details */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          {/* Detail grid */}
+          <div className="divide-y text-sm">
+            {listing.status && (
+              <div className="flex justify-between py-2.5">
+                <span className="font-medium text-gray-500">สถานะ :</span>
+                <span className="font-medium text-gray-900">
+                  {listing.status === "active"
+                    ? "ทรัพย์พร้อมขาย"
+                    : listing.status}
+                </span>
+              </div>
+            )}
             {listing.floors != null && (
-              <div className="flex items-center gap-2">
-                <Building className="h-4 w-4 text-muted-foreground" />
+              <div className="flex justify-between py-2.5">
+                <span className="font-medium text-gray-500">จำนวนชั้น :</span>
                 <span>{listing.floors} ชั้น</span>
               </div>
             )}
-            {listing.land_area != null && (
-              <div className="flex items-center gap-2">
-                <Maximize className="h-4 w-4 text-muted-foreground" />
-                <span>ที่ดิน {listing.land_area} ตร.ว.</span>
+            {listing.parking != null && (
+              <div className="flex justify-between py-2.5">
+                <span className="font-medium text-gray-500">ที่จอดรถ :</span>
+                <span>{listing.parking} คัน</span>
               </div>
             )}
             {listing.year_built != null && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>ปีที่สร้าง {listing.year_built}</span>
+              <div className="flex justify-between py-2.5">
+                <span className="font-medium text-gray-500">ปีที่สร้าง :</span>
+                <span>{listing.year_built}</span>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-muted-foreground" />
-              <span>เข้าชม {listing.view_count} ครั้ง</span>
+            <div className="flex justify-between py-2.5">
+              <span className="font-medium text-gray-500">เข้าชม :</span>
+              <span className="flex items-center gap-1">
+                <Eye className="h-3.5 w-3.5" /> {listing.view_count} ครั้ง
+              </span>
             </div>
           </div>
 
-          {/* Description */}
+          {/* Owner info */}
+          <div className="rounded-lg border p-4">
+            <h3 className="font-bold text-gray-900">ผู้จัดการทรัพย์ :</h3>
+            <p className="mt-1 font-medium">{listing.user_name}</p>
+            {listing.user_phone && (
+              <a
+                href={`tel:${listing.user_phone}`}
+                className="mt-1 flex items-center gap-2 text-sm text-blue-900 hover:underline"
+              >
+                <Phone className="h-4 w-4" /> {listing.user_phone}
+              </a>
+            )}
+          </div>
+
+          {/* Contact button */}
+          <Button
+            className="w-full bg-blue-900 py-6 text-base font-bold hover:bg-blue-800"
+            onClick={() => {
+              const el = document.getElementById("inquiry-section");
+              el?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
+            สนใจทรัพย์ติดต่อเจ้าหน้าที่
+          </Button>
+        </div>
+      </div>
+
+      {/* ===== GOOGLE MAP SECTION ===== */}
+      <div id="map-section" className="mt-10">
+        <h2 className="mb-4 text-xl font-bold text-gray-900">แผนที่</h2>
+        <div className="overflow-hidden rounded-xl border">
+          {mapsLoaded && hasCoords ? (
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={mapCenter}
+              zoom={15}
+              options={{
+                streetViewControl: false,
+                mapTypeControl: false,
+                fullscreenControl: true,
+              }}
+            >
+              <MarkerF
+                position={mapCenter}
+                onClick={() => setShowInfoWindow(true)}
+              />
+              {showInfoWindow && (
+                <InfoWindowF
+                  position={mapCenter}
+                  onCloseClick={() => setShowInfoWindow(false)}
+                >
+                  <div className="max-w-[280px] p-1">
+                    {images[0] && (
+                      <div className="relative mb-2 h-32 w-full overflow-hidden rounded">
+                        <Image
+                          src={images[0].url}
+                          alt={listing.title}
+                          fill
+                          className="object-cover"
+                          sizes="280px"
+                        />
+                        <div className="absolute top-2 left-2 rounded bg-blue-900 px-2 py-0.5 text-xs font-medium text-white">
+                          {offerLabel(listing.offer) === "ขาย"
+                            ? "ทรัพย์พร้อมขาย"
+                            : offerLabel(listing.offer)}
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-sm font-bold text-gray-900">
+                      {listing.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {fullAddress}
+                    </p>
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 transition"
+                    >
+                      <MapPin className="h-3 w-3" /> เปิดผ่าน Google map
+                    </a>
+                  </div>
+                </InfoWindowF>
+              )}
+            </GoogleMap>
+          ) : hasCoords ? (
+            <div className="flex h-[400px] items-center justify-center bg-gray-100">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
+            </div>
+          ) : (
+            <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-gray-100">
+              <MapPin className="h-10 w-10 text-gray-400" />
+              <p className="text-muted-foreground">ไม่มีข้อมูลพิกัดสำหรับทรัพย์นี้</p>
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-blue-900 hover:underline"
+              >
+                <Search className="h-4 w-4" /> ค้นหาบน Google Maps
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== DESCRIPTION & FACILITIES ===== */}
+      <div className="mt-10 grid gap-8 lg:grid-cols-5">
+        <div className="lg:col-span-3 space-y-6">
           {listing.description && (
             <div>
-              <h2 className="text-lg font-bold text-gray-900">รายละเอียด</h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+              <h2 className="text-xl font-bold text-gray-900">รายละเอียดทรัพย์</h2>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
                 {listing.description}
               </p>
             </div>
           )}
 
-          {/* Facilities */}
           {facilities.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold text-gray-900">สิ่งอำนวยความสะดวก</h2>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <h2 className="text-xl font-bold text-gray-900">
+                สิ่งอำนวยความสะดวก
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
                 {facilities.map((f) => (
                   <Badge key={f.id} variant="secondary" className="text-sm">
                     {f.label}
@@ -310,56 +577,16 @@ export default function ListingDetailPage() {
           )}
         </div>
 
-        {/* Right sidebar — Contact + Actions */}
-        <div className="space-y-4">
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleFavorite}
-            >
-              <Heart className={`mr-1 h-4 w-4 ${favorited ? "fill-red-500 text-red-500" : ""}`} />
-              {favorited ? "บันทึกแล้ว" : "บันทึก"}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                if (typeof navigator !== "undefined") {
-                  navigator.clipboard.writeText(window.location.href);
-                }
-              }}
-            >
-              <Share2 className="mr-1 h-4 w-4" /> แชร์
-            </Button>
-          </div>
-
-          {/* Owner info */}
-          <div className="rounded-lg border p-4">
-            <h3 className="font-bold text-gray-900">ข้อมูลผู้ลงประกาศ</h3>
-            <div className="mt-3 space-y-2 text-sm">
-              <p className="font-medium">{listing.user_name}</p>
-              {listing.user_phone && (
-                <a
-                  href={`tel:${listing.user_phone}`}
-                  className="flex items-center gap-2 text-blue-900 hover:underline"
-                >
-                  <Phone className="h-4 w-4" /> {listing.user_phone}
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Inquiry form */}
-          <div className="rounded-lg border p-4">
-            <h3 className="font-bold text-gray-900">สอบถามเพิ่มเติม</h3>
+        {/* Inquiry form */}
+        <div id="inquiry-section" className="lg:col-span-2">
+          <div className="rounded-xl border p-5 sticky top-4">
+            <h3 className="text-lg font-bold text-gray-900">สอบถามเพิ่มเติม</h3>
             {inquirySent ? (
-              <div className="mt-3 rounded-lg bg-green-50 p-3 text-center text-sm text-green-800">
+              <div className="mt-4 rounded-lg bg-green-50 p-4 text-center text-sm text-green-800">
                 ส่งข้อความเรียบร้อยแล้ว! ผู้ลงประกาศจะติดต่อกลับ
               </div>
             ) : (
-              <form onSubmit={handleInquiry} className="mt-3 space-y-3">
+              <form onSubmit={handleInquiry} className="mt-4 space-y-3">
                 <Input
                   placeholder="ชื่อ *"
                   value={inquiryName}
@@ -383,12 +610,12 @@ export default function ListingDetailPage() {
                   value={inquiryMessage}
                   onChange={(e) => setInquiryMessage(e.target.value)}
                   required
-                  rows={3}
+                  rows={4}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
                 <Button
                   type="submit"
-                  className="w-full bg-blue-900 hover:bg-blue-800"
+                  className="w-full bg-blue-900 py-5 text-base font-bold hover:bg-blue-800"
                   disabled={inquirySending}
                 >
                   {inquirySending ? (
@@ -403,6 +630,69 @@ export default function ListingDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ===== RELATED LISTINGS ===== */}
+      {relatedListings.length > 0 && (
+        <div className="mt-12">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-900">
+              ทรัพย์อื่นๆที่น่าสนใจ
+            </h2>
+            <Link href={`/search?province=${listing.province}`}>
+              <Button variant="outline" className="rounded-full">
+                ดูทั้งหมด
+              </Button>
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {relatedListings.map((item) => (
+              <Link
+                key={item.id}
+                href={`/listings/${item.slug}`}
+                className="group overflow-hidden rounded-xl border transition hover:shadow-lg"
+              >
+                <div className="relative aspect-[4/3] bg-gray-200">
+                  {item.cover_url ? (
+                    <Image
+                      src={item.cover_url}
+                      alt={item.title}
+                      fill
+                      className="object-cover transition group-hover:scale-105"
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
+                      ไม่มีรูป
+                    </div>
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {typeLabel(item.type)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.district}, {item.province}
+                  </p>
+                  <p className="mt-1 font-bold text-sm text-gray-900 line-clamp-1">
+                    {item.title}
+                  </p>
+                  {item.area != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      พื้นที่ใช้สอย: {item.area} ตร.ม.
+                    </p>
+                  )}
+                  <p className="mt-2 text-lg font-bold text-blue-900">
+                    {formatPrice(item.price)}{" "}
+                    <span className="text-xs font-normal text-gray-500">
+                      บาท
+                    </span>
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
