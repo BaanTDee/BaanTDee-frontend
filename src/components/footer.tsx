@@ -11,7 +11,7 @@ export default function Footer() {
             <p className="mt-2 text-sm text-muted-foreground">
               แพลตฟอร์มซื้อ-ขาย-เช่า อสังหาริมทรัพย์
               <br />
-              ที่น่าเชื่อถือที่สุด
+              ที่เป็นมิตรที่สุด
             </p>
           </div>
 
