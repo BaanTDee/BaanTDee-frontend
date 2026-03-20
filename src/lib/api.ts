@@ -278,6 +278,39 @@ export async function getFavorites(
   return apiFetch(`/favorites?page=${page}&per_page=${perPage}`, {}, true);
 }
 
+// ---------- Addresses API ----------
+
+export interface ThProvince { id: number; nameTh: string; nameEn: string | null }
+export interface ThDistrict  { id: number; provinceId: number; nameTh: string; nameEn: string | null }
+export interface ThSubdistrict { id: number; districtId: number; nameTh: string; postalCode: string | null }
+export interface PostalLookup { subdistrictId: number; subdistrict: string; districtId: number; district: string; provinceId: number; province: string; postalCode: string | null }
+
+export async function getThProvinces(search?: string): Promise<ThProvince[]> {
+  const qs = search ? `?search=${encodeURIComponent(search)}` : "";
+  return apiFetch(`/addresses/provinces${qs}`);
+}
+
+export async function getThDistricts(provinceId?: number, search?: string): Promise<ThDistrict[]> {
+  const params = new URLSearchParams();
+  if (provinceId) params.set("provinceId", String(provinceId));
+  if (search) params.set("search", search);
+  const qs = params.toString();
+  return apiFetch(`/addresses/districts${qs ? `?${qs}` : ""}`);
+}
+
+export async function getThSubdistricts(districtId?: number, provinceId?: number, search?: string): Promise<ThSubdistrict[]> {
+  const params = new URLSearchParams();
+  if (districtId) params.set("districtId", String(districtId));
+  else if (provinceId) params.set("provinceId", String(provinceId));
+  if (search) params.set("search", search);
+  const qs = params.toString();
+  return apiFetch(`/addresses/subdistricts${qs ? `?${qs}` : ""}`);
+}
+
+export async function lookupByPostalCode(postalCode: string): Promise<PostalLookup[]> {
+  return apiFetch(`/addresses/lookup?postalCode=${encodeURIComponent(postalCode)}`);
+}
+
 // ---------- Inquiries API ----------
 
 export async function sendInquiry(

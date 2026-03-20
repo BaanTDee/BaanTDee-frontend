@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import { Search, Heart, MessageCircle, Menu, LogOut, User } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Search, Heart, MessageCircle, Menu, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -18,10 +18,6 @@ export default function Navbar() {
     if (searchQuery.trim()) {
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
-  };
-
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
   };
 
   return (
@@ -63,16 +59,13 @@ export default function Navbar() {
 
           {session?.user ? (
             <div className="hidden md:flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-sm text-gray-700">
+              <Link
+                href="/profile"
+                className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-blue-900 transition"
+              >
                 <User className="h-4 w-4" />
                 <span className="max-w-[120px] truncate">{session.user.name || session.user.email}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 transition"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
+              </Link>
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-2">
