@@ -66,6 +66,21 @@ export default function CreateListingPage() {
   const [subdistrict, setSubdistrict] = useState("");
   const [subdistrictId, setSubdistrictId] = useState<number | null>(null);
   const [postalCode, setPostalCode] = useState("");
+  const [mapUrl, setMapUrl] = useState("");
+  const [mapLat, setMapLat] = useState<number | null>(null);
+  const [mapLng, setMapLng] = useState<number | null>(null);
+
+  const resolveMapUrl = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      const res = await fetch(`/api/maps/resolve?url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      if (data.lat != null && data.lng != null) {
+        setMapLat(data.lat);
+        setMapLng(data.lng);
+      }
+    } catch {}
+  };
 
   // Address API data
   const [allProvinces, setAllProvinces] = useState<ThProvince[]>([]);
@@ -275,6 +290,9 @@ export default function CreateListingPage() {
       if (address.trim()) addressObj.address = address.trim();
       if (subdistrict.trim()) addressObj.subdistrict = subdistrict.trim();
       if (postalCode.trim()) addressObj.postal_code = postalCode.trim();
+      if (mapUrl.trim()) addressObj.map_url = mapUrl.trim();
+      if (mapLat != null) addressObj.latitude = mapLat;
+      if (mapLng != null) addressObj.longitude = mapLng;
 
       const body: Record<string, unknown> = {
         title: title.trim(),
@@ -825,7 +843,22 @@ export default function CreateListingPage() {
                 )}
               </div>
             </div>
-          </div>
+            </div>
+
+            {/* Google Maps link */}
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">ลิงก์ Google Maps</label>
+              <Input
+                placeholder="https://maps.app.goo.gl/..."
+                value={mapUrl}
+                onChange={(e) => { setMapUrl(e.target.value); setMapLat(null); setMapLng(null); }}
+                onBlur={(e) => resolveMapUrl(e.target.value)}
+                type="url"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {mapLat != null ? `✓ พบพิกัด: ${mapLat.toFixed(5)}, ${mapLng?.toFixed(5)}` : "วาง link จาก Google Maps เช่น https://maps.app.goo.gl/..."}
+              </p>
+            </div>
           </div>
 
           {/* สิ่งอำนวยความสะดวก */}

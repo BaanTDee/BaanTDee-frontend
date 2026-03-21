@@ -25,7 +25,6 @@ import {
   Search,
   ExternalLink,
 } from "lucide-react";
-import { GoogleMap, useJsApiLoader, MarkerF, InfoWindowF } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,10 +39,6 @@ import {
 import { useFavorites } from "@/context/favorites-context";
 import type { ListingDetailResponse, ListingSummary, InquiryBody } from "@/lib/types";
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-
-const mapContainerStyle = { width: "100%", height: "400px" };
-
 export default function ListingDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -54,7 +49,6 @@ export default function ListingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const { has, toggle } = useFavorites();
-  const [showInfoWindow, setShowInfoWindow] = useState(true);
   const [relatedListings, setRelatedListings] = useState<ListingSummary[]>([]);
 
   // Inquiry form
@@ -64,10 +58,6 @@ export default function ListingDetailPage() {
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [inquirySending, setInquirySending] = useState(false);
   const [inquirySent, setInquirySent] = useState(false);
-
-  const { isLoaded: mapsLoaded } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-  });
 
   useEffect(() => {
     async function fetchListing() {
@@ -194,7 +184,7 @@ export default function ListingDetailPage() {
     .join(", ");
   const googleMapsUrl = hasCoords
     ? `https://www.google.com/maps?q=${listing.latitude},${listing.longitude}`
-    : `https://www.google.com/maps/search/${encodeURIComponent(fullAddress)}`;
+    : listing.map_url || `https://www.google.com/maps/search/${encodeURIComponent(fullAddress)}`;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -466,78 +456,61 @@ export default function ListingDetailPage() {
       <div id="map-section" className="mt-10">
         <h2 className="mb-4 text-xl font-bold text-gray-900">แผนที่</h2>
         <div className="overflow-hidden rounded-xl border">
-          {mapsLoaded && hasCoords ? (
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={mapCenter}
-              zoom={15}
-              options={{
-                streetViewControl: false,
-                mapTypeControl: false,
-                fullscreenControl: true,
-              }}
-            >
-              <MarkerF
-                position={mapCenter}
-                onClick={() => setShowInfoWindow(true)}
+          {hasCoords ? (
+            <>
+              <iframe
+                src={`https://maps.google.com/maps?q=${listing.latitude},${listing.longitude}&z=16&output=embed`}
+                width="100%"
+                height="360"
+                style={{ border: 0, display: "block" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="แผนที่"
               />
-              {showInfoWindow && (
-                <InfoWindowF
-                  position={mapCenter}
-                  onCloseClick={() => setShowInfoWindow(false)}
+              <div className="flex items-center justify-between border-t bg-white px-4 py-3">
+                <p className="truncate text-sm text-gray-500">{fullAddress}</p>
+                <a
+                  href={listing.map_url || googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-4 inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-blue-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
-                  <div className="max-w-[280px] p-1">
-                    {images[0] && (
-                      <div className="relative mb-2 h-32 w-full overflow-hidden rounded">
-                        <Image
-                          src={images[0].url}
-                          alt={listing.title}
-                          fill
-                          className="object-cover"
-                          sizes="280px"
-                        />
-                        <div className="absolute top-2 left-2 rounded bg-blue-900 px-2 py-0.5 text-xs font-medium text-white">
-                          {offerLabel(listing.offer) === "ขาย"
-                            ? "ทรัพย์พร้อมขาย"
-                            : offerLabel(listing.offer)}
-                        </div>
-                      </div>
-                    )}
-                    <p className="text-sm font-bold text-gray-900">
-                      {listing.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {fullAddress}
-                    </p>
-                    <a
-                      href={googleMapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 transition"
-                    >
-                      <MapPin className="h-3 w-3" /> เปิดผ่าน Google map
-                    </a>
-                  </div>
-                </InfoWindowF>
-              )}
-            </GoogleMap>
-          ) : hasCoords ? (
-            <div className="flex h-[400px] items-center justify-center bg-gray-100">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
-            </div>
+                  <MapPin className="h-4 w-4" /> เปิดผ่าน Google map
+                </a>
+              </div>
+            </>
           ) : (
-            <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-gray-100">
-              <MapPin className="h-10 w-10 text-gray-400" />
-              <p className="text-muted-foreground">ไม่มีข้อมูลพิกัดสำหรับทรัพย์นี้</p>
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-blue-900 hover:underline"
-              >
-                <Search className="h-4 w-4" /> ค้นหาบน Google Maps
-              </a>
-            </div>
+            <>
+              {fullAddress ? (
+                <iframe
+                  src={`https://maps.google.com/maps?q=${encodeURIComponent(fullAddress)}&output=embed`}
+                  width="100%"
+                  height="360"
+                  style={{ border: 0, display: "block" }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="แผนที่"
+                />
+              ) : (
+                <div className="flex h-[360px] flex-col items-center justify-center gap-2 bg-gray-100">
+                  <MapPin className="h-10 w-10 text-gray-400" />
+                  <p className="text-muted-foreground">ไม่มีข้อมูลพิกัดสำหรับทรัพย์นี้</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t bg-white px-4 py-3">
+                <p className="truncate text-sm text-gray-500">{fullAddress || listing.province || ""}</p>
+                <a
+                  href={listing.map_url || googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-4 inline-flex flex-shrink-0 items-center gap-2 rounded-full bg-blue-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
+                >
+                  <MapPin className="h-4 w-4" /> เปิดผ่าน Google map
+                </a>
+              </div>
+            </>
           )}
         </div>
       </div>

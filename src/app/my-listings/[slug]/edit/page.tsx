@@ -113,6 +113,21 @@ export default function EditListingPage() {
   const [subdistrict, setSubdistrict] = useState("");
   const [subdistrictId, setSubdistrictId] = useState<number | null>(null);
   const [postalCode, setPostalCode] = useState("");
+  const [mapUrl, setMapUrl] = useState("");
+  const [mapLat, setMapLat] = useState<number | null>(null);
+  const [mapLng, setMapLng] = useState<number | null>(null);
+
+  const resolveMapUrl = async (url: string) => {
+    if (!url.trim()) return;
+    try {
+      const res = await fetch(`/api/maps/resolve?url=${encodeURIComponent(url)}`);
+      const data = await res.json();
+      if (data.lat != null && data.lng != null) {
+        setMapLat(data.lat);
+        setMapLng(data.lng);
+      }
+    } catch {}
+  };
 
   // Address API data
   const [allProvinces, setAllProvinces] = useState<ThProvince[]>([]);
@@ -211,6 +226,18 @@ export default function EditListingPage() {
         setDistrict(listing.district || "");
         setSubdistrict(listing.subdistrict || "");
         setPostalCode(listing.postal_code || "");
+        setMapUrl(listing.map_url || "");
+        if (listing.latitude != null) {
+          setMapLat(listing.latitude);
+          setMapLng(listing.longitude);
+        } else if (listing.map_url) {
+          // Auto-resolve coords from saved map_url if no coords stored yet
+          try {
+            const r = await fetch(`/api/maps/resolve?url=${encodeURIComponent(listing.map_url)}`);
+            const d = await r.json();
+            if (d.lat != null) { setMapLat(d.lat); setMapLng(d.lng); }
+          } catch {}
+        }
 
         setExistingImages(images);
         const cover = images.find((i) => i.is_cover);
@@ -461,6 +488,9 @@ export default function EditListingPage() {
       if (address.trim()) addressObj.address = address.trim();
       if (subdistrict.trim()) addressObj.subdistrict = subdistrict.trim();
       if (postalCode.trim()) addressObj.postal_code = postalCode.trim();
+      if (mapUrl.trim()) addressObj.map_url = mapUrl.trim();
+      if (mapLat != null) addressObj.latitude = mapLat;
+      if (mapLng != null) addressObj.longitude = mapLng;
 
       const body: Record<string, unknown> = {
         title: title.trim(),
@@ -1244,6 +1274,22 @@ export default function EditListingPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                ลิงก์ Google Maps
+              </label>
+              <Input
+                type="url"
+                placeholder="https://maps.app.goo.gl/..."
+                value={mapUrl}
+                onChange={(e) => { setMapUrl(e.target.value); setMapLat(null); setMapLng(null); }}
+                onBlur={(e) => resolveMapUrl(e.target.value)}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {mapLat != null ? `✓ พบพิกัด: ${mapLat.toFixed(5)}, ${mapLng?.toFixed(5)}` : "วาง link จาก Google Maps เช่น https://maps.app.goo.gl/..."}
+              </p>
             </div>
           </div>
 

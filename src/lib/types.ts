@@ -108,6 +108,7 @@ export interface ListingDetail extends ListingSummary {
   address: string | null;
   subdistrict: string | null;
   postal_code: string | null;
+  map_url: string | null;
   longitude: number | null;
   latitude: number | null;
   user_name: string;
@@ -156,6 +157,7 @@ export interface CreateListingBody {
   district: string;
   subdistrict?: string;
   postal_code?: string;
+  map_url?: string;
   longitude?: number;
   latitude?: number;
 }
