@@ -174,6 +174,7 @@ export default function ProfilePage() {
                 offer={listing.offer}
                 type={listing.type}
                 tag={listing.is_featured ? "PREMIUM" : undefined}
+                editHref={`/my-listings/${listing.slug}/edit`}
               />
             ))}
           </div>

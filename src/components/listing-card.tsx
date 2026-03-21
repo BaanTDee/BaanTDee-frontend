@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, MapPin } from "lucide-react";
+import { Heart, MapPin, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
 import { useFavorites } from "@/context/favorites-context";
+import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 
 export interface ListingCardProps {
@@ -20,6 +21,7 @@ export interface ListingCardProps {
   offer?: string;
   type?: string;
   isFavorited?: boolean;
+  editHref?: string;
 }
 
 export default function ListingCard({
@@ -32,9 +34,11 @@ export default function ListingCard({
   tag,
   ownerType,
   offer,
+  editHref,
 }: ListingCardProps) {
   const { data: session } = useSession();
   const { has, toggle } = useFavorites();
+  const router = useRouter();
   const favorited = id ? has(id) : false;
   const [imgSrc, setImgSrc] = useState(image || "/placeholder-house.svg");
   const handleImgError = useCallback(() => setImgSrc("/placeholder-house.svg"), []);
@@ -107,6 +111,21 @@ export default function ListingCard({
               {ownerType}
             </span>
           </div>
+        )}
+
+        {/* Edit button */}
+        {editHref && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(editHref);
+            }}
+            className="absolute bottom-2 right-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 border border-gray-200 px-3 py-1.5 text-xs font-medium text-blue-900 shadow hover:bg-blue-900 hover:text-white transition"
+          >
+            <Pencil className="h-3 w-3" />
+            แก้ไข
+          </button>
         )}
       </div>
 

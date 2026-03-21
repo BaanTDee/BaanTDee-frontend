@@ -233,12 +233,15 @@ export async function createListing(
 
 export async function updateListing(
   id: number,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  token?: string
 ): Promise<ApiResponse<ListingSummary>> {
   return apiFetch(
     `/listings/${id}`,
     { method: "PATCH", body: JSON.stringify(body) },
-    true
+    true,
+    true,
+    token
   );
 }
 
@@ -269,9 +272,18 @@ export async function uploadImage(
 
 export async function deleteImage(
   listingId: number,
-  imageId: number
+  imageId: number,
+  token?: string
 ): Promise<ApiResponse<{ message: string }>> {
-  return apiFetch(`/listings/${listingId}/images/${imageId}`, { method: "DELETE" }, true);
+  return apiFetch(`/listings/${listingId}/images/${imageId}`, { method: "DELETE" }, true, true, token);
+}
+
+export async function setCoverImage(
+  listingId: number,
+  imageId: number,
+  token?: string
+): Promise<ApiResponse<{ imageId: number; is_cover: boolean }>> {
+  return apiFetch(`/listings/${listingId}/images/${imageId}/cover`, { method: "PATCH" }, true, true, token);
 }
 
 // ---------- Facilities API ----------
@@ -282,20 +294,24 @@ export async function getFacilities(): Promise<ApiResponse<Facility[]>> {
 
 export async function addFacility(
   listingId: number,
-  facilityId: number
+  facilityId: number,
+  token?: string
 ): Promise<ApiResponse<unknown>> {
   return apiFetch(
     `/listings/${listingId}/facilities`,
     { method: "POST", body: JSON.stringify({ facility_id: facilityId }) },
-    true
+    true,
+    true,
+    token
   );
 }
 
 export async function removeFacility(
   listingId: number,
-  facilityId: number
+  facilityId: number,
+  token?: string
 ): Promise<ApiResponse<unknown>> {
-  return apiFetch(`/listings/${listingId}/facilities/${facilityId}`, { method: "DELETE" }, true);
+  return apiFetch(`/listings/${listingId}/facilities/${facilityId}`, { method: "DELETE" }, true, true, token);
 }
 
 // ---------- Favorites API ----------
