@@ -533,17 +533,6 @@ export default function CreateListingPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">ปีที่สร้าง (พ.ศ.)</label>
-                  <Input
-                    type="number"
-                    min={2400}
-                    max={2580}
-                    placeholder="เช่น 2560"
-                    value={yearBuilt}
-                    onChange={(e) => setYearBuilt(e.target.value)}
-                  />
-                </div>
-                <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">พื้นที่ใช้สอย (ตร.ม.)</label>
                   <Input
                     type="number"
