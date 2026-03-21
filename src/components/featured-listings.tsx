@@ -17,7 +17,7 @@ export default function FeaturedListings() {
         // Backend doesn't have a dedicated "featured" flag query,
         // so we fetch the first page and take featured ones.
         // If backend adds ?featured=true param later, just switch here.
-        const res = await getListings({ per_page: 20 });
+        const res = await getListings({ limit: 20 });
         if (res.success && Array.isArray(res.data)) {
           const featured = res.data.filter((l) => l.is_featured);
           setListings(featured.length > 0 ? featured.slice(0, 8) : res.data.slice(0, 6));

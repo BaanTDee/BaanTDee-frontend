@@ -31,18 +31,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!session?.user) return;
+    const userId = backendUser?.id;
+    if (!userId) return;
     setLoadingListings(true);
-    // Fetch listings by current user
-    getListings({ per_page: 6 })
+    getListings({ limit: 6, user_id: userId })
       .then((res) => {
         if (res.success) {
-          // Filter only current user's listings
-          const userId = backendUser?.id;
-          if (userId) {
-            setMyListings(res.data.filter((l: ListingSummary) => l.user_id === userId));
-          } else {
-            setMyListings(res.data);
-          }
+          setMyListings(res.data);
         }
       })
       .finally(() => setLoadingListings(false));
@@ -146,7 +141,7 @@ export default function ProfilePage() {
             ประกาศของฉัน
           </h2>
           <Link
-            href="/search"
+            href="/my-listings"
             className="flex items-center gap-1 text-sm text-blue-900 hover:underline"
           >
             ดูทั้งหมด <ChevronRight className="h-4 w-4" />
@@ -175,7 +170,7 @@ export default function ProfilePage() {
                 title={listing.title}
                 location={`${listing.district}, ${listing.province}`}
                 price={formatPrice(listing.price)}
-                image={listing.cover_url || ""}
+                image={listing.cover_url || "/placeholder-house.svg"}
                 offer={listing.offer}
                 type={listing.type}
                 tag={listing.is_featured ? "PREMIUM" : undefined}

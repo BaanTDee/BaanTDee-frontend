@@ -33,12 +33,11 @@ import {
   getListingBySlug,
   getListings,
   sendInquiry,
-  addFavorite,
-  removeFavorite,
   formatPrice,
   typeLabel,
   offerLabel,
 } from "@/lib/api";
+import { useFavorites } from "@/context/favorites-context";
 import type { ListingDetailResponse, ListingSummary, InquiryBody } from "@/lib/types";
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
@@ -54,7 +53,7 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [favorited, setFavorited] = useState(false);
+  const { has, toggle } = useFavorites();
   const [showInfoWindow, setShowInfoWindow] = useState(true);
   const [relatedListings, setRelatedListings] = useState<ListingSummary[]>([]);
 
@@ -80,7 +79,7 @@ export default function ListingDetailPage() {
           // Fetch related listings from same province
           const related = await getListings({
             province: res.data.listing.province,
-            per_page: 6,
+            limit: 6,
           });
           if (related.success) {
             setRelatedListings(
@@ -112,19 +111,11 @@ export default function ListingDetailPage() {
     }
   }, [session]);
 
+  const favorited = data ? has(data.listing.id) : false;
+
   const handleFavorite = async () => {
     if (!session?.user || !data) return;
-    try {
-      if (favorited) {
-        await removeFavorite(data.listing.id);
-        setFavorited(false);
-      } else {
-        await addFavorite(data.listing.id);
-        setFavorited(true);
-      }
-    } catch {
-      // ignore
-    }
+    await toggle(data.listing.id);
   };
 
   const handleInquiry = async (e: React.FormEvent) => {
@@ -186,7 +177,9 @@ export default function ListingDetailPage() {
     );
   }
 
-  const { listing, images, facilities } = data;
+  const { listing, images: rawImages, facilities } = data;
+  // Sort so cover image appears first
+  const images = [...rawImages].sort((a, b) => (b.is_cover ? 1 : 0) - (a.is_cover ? 1 : 0));
   const hasCoords = listing.latitude != null && listing.longitude != null;
   const mapCenter = hasCoords
     ? { lat: listing.latitude!, lng: listing.longitude! }

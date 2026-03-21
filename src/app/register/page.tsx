@@ -27,6 +27,8 @@ export default function RegisterPage() {
     return null;
   }
 
+  if (status === "authenticated") return null;
+
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");

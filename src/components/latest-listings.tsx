@@ -25,7 +25,7 @@ export default function LatestListings() {
     async function fetchData() {
       setLoading(true);
       try {
-        const params: Record<string, string | number> = { per_page: 8 };
+        const params: Record<string, string | number> = { limit: 8 };
         const type = tabs[activeTab].type;
         if (type) params.type = type;
         const res = await getListings(params);

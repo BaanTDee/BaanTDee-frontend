@@ -6,13 +6,14 @@ import { useSession } from "next-auth/react";
 import { Loader2, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ListingCard from "@/components/listing-card";
-import { getFavorites, formatPrice } from "@/lib/api";
-import type { FavoriteItem, PaginationMeta } from "@/lib/types";
+import { getFavorites, formatPrice, getAccessToken, setTokens, ensureFreshToken } from "@/lib/api";
+import type { FavoriteItem } from "@/lib/types";
+
+const PER_PAGE = 12;
 
 export default function FavoritesPage() {
   const { data: session, status } = useSession();
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [allFavorites, setAllFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
@@ -21,10 +22,19 @@ export default function FavoritesPage() {
     async function fetchFavs() {
       setLoading(true);
       try {
-        const res = await getFavorites(page);
+        // Ensure localStorage has fresh tokens (sync from session if needed)
+        let token = await ensureFreshToken();
+        if (!token) {
+          const at = (session as any)?.accessToken as string | undefined;
+          const rt = (session as any)?.refreshToken as string | undefined;
+          if (at && rt) {
+            setTokens(at, rt);
+            token = await ensureFreshToken();
+          }
+        }
+        const res = await getFavorites(token ?? undefined);
         if (res.success) {
-          setFavorites(res.data);
-          setMeta(res.meta);
+          setAllFavorites(res.data);
         }
       } catch {
         // ignore
@@ -33,7 +43,7 @@ export default function FavoritesPage() {
       }
     }
     fetchFavs();
-  }, [session, page]);
+  }, [session]);
 
   if (status === "loading") {
     return (
@@ -58,20 +68,23 @@ export default function FavoritesPage() {
     );
   }
 
+  const totalPages = Math.ceil(allFavorites.length / PER_PAGE);
+  const paged = allFavorites.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">รายการโปรด</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {meta ? `${meta.total} รายการที่บันทึกไว้` : "กำลังโหลด..."}
+        {loading ? "กำลังโหลด..." : `${allFavorites.length} รายการที่บันทึกไว้`}
       </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
         </div>
-      ) : favorites.length > 0 ? (
+      ) : paged.length > 0 ? (
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {favorites.map((fav) => (
+          {paged.map((fav) => (
             <ListingCard
               key={fav.listing_id}
               id={fav.listing_id}
@@ -80,8 +93,8 @@ export default function FavoritesPage() {
               location={`${fav.district} ${fav.province}`}
               price={formatPrice(fav.price)}
               image={fav.cover_url || "/placeholder-house.svg"}
-              tag="PREMIUM"
-              isFavorited
+              offer={fav.offer}
+              type={fav.type}
             />
           ))}
         </div>
@@ -99,7 +112,7 @@ export default function FavoritesPage() {
       )}
 
       {/* Pagination */}
-      {meta && meta.pages > 1 && (
+      {totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
           <Button
             variant="outline"
@@ -110,12 +123,12 @@ export default function FavoritesPage() {
             ก่อนหน้า
           </Button>
           <span className="text-sm text-muted-foreground">
-            หน้า {page} / {meta.pages}
+            หน้า {page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={page >= meta.pages}
+            disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
             ถัดไป

@@ -52,6 +52,7 @@ function SearchContent() {
   const [minPrice, setMinPrice] = useState(searchParams.get("min_price") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("max_price") || "");
   const [page, setPage]         = useState(Number(searchParams.get("page")) || 1);
+  const userId                    = searchParams.get("user_id") || "";
 
   const [listings, setListings] = useState<ListingSummary[]>([]);
   const [meta, setMeta]         = useState<PaginationMeta | null>(null);
@@ -81,19 +82,20 @@ function SearchContent() {
     async (p = page) => {
       setLoading(true);
       try {
-        const params: Record<string, string | number> = { page: p, per_page: 12 };
+        const params: Record<string, string | number> = { page: p, limit: 12 };
         if (query.trim()) params.q = query.trim();
         if (type)     params.type = type;
         if (offer)    params.offer = offer;
         if (province) params.province = province;
         if (minPrice) params.min_price = Number(minPrice);
         if (maxPrice) params.max_price = Number(maxPrice);
+        if (userId)   params.user_id = Number(userId);
         const res = await getListings(params);
         if (res.success) { setListings(res.data); setMeta(res.meta); }
       } catch { /* ignore */ }
       finally { setLoading(false); }
     },
-    [query, type, offer, province, minPrice, maxPrice, page]
+    [query, type, offer, province, minPrice, maxPrice, page, userId]
   );
 
   useEffect(() => {

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { Heart, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
-import { addFavorite, removeFavorite } from "@/lib/api";
-import { useState } from "react";
+import { useFavorites } from "@/context/favorites-context";
+import { useState, useCallback } from "react";
 
 export interface ListingCardProps {
   id?: number;
@@ -32,10 +32,12 @@ export default function ListingCard({
   tag,
   ownerType,
   offer,
-  isFavorited: initialFav = false,
 }: ListingCardProps) {
   const { data: session } = useSession();
-  const [favorited, setFavorited] = useState(initialFav);
+  const { has, toggle } = useFavorites();
+  const favorited = id ? has(id) : false;
+  const [imgSrc, setImgSrc] = useState(image || "/placeholder-house.svg");
+  const handleImgError = useCallback(() => setImgSrc("/placeholder-house.svg"), []);
 
   const tagColors = {
     HOT: "bg-red-500 text-white",
@@ -47,17 +49,7 @@ export default function ListingCard({
     e.preventDefault();
     e.stopPropagation();
     if (!session?.user || !id) return;
-    try {
-      if (favorited) {
-        await removeFavorite(id);
-        setFavorited(false);
-      } else {
-        await addFavorite(id);
-        setFavorited(true);
-      }
-    } catch {
-      // silently fail
-    }
+    await toggle(id);
   };
 
   const href = slug ? `/listings/${slug}` : "#";
@@ -70,11 +62,12 @@ export default function ListingCard({
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-gray-200">
         <Image
-          src={image}
+          src={imgSrc}
           alt={title}
           fill
           sizes="280px"
           className="object-cover transition group-hover:scale-105"
+          onError={handleImgError}
         />
 
         {/* Tag badge */}

@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import {
   createListing, uploadImage, getFacilities,
   getThProvinces, getThDistricts, getThSubdistricts, lookupByPostalCode,
+  setTokens, getAccessToken,
 } from "@/lib/api";
 import type { ThProvince, ThDistrict, ThSubdistrict, PostalLookup } from "@/lib/api";
 import type { ListingType, ListingOffer, Facility } from "@/lib/types";
@@ -82,6 +83,8 @@ export default function CreateListingPage() {
   const [provinceOpen, setProvinceOpen] = useState(false);
   const [districtOpen, setDistrictOpen] = useState(false);
   const [subdistrictOpen, setSubdistrictOpen] = useState(false);
+  const titleRef = useRef<HTMLDivElement>(null);
+  const priceRef = useRef<HTMLDivElement>(null);
   const provinceRef = useRef<HTMLDivElement>(null);
   const districtRef = useRef<HTMLDivElement>(null);
   const subdistrictRef = useRef<HTMLDivElement>(null);
@@ -173,6 +176,7 @@ export default function CreateListingPage() {
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({ title: false, price: false, province: false, district: false });
   const [step, setStep] = useState<"main" | "uploading">("main");
 
   useEffect(() => {
@@ -238,53 +242,79 @@ export default function CreateListingPage() {
     e.preventDefault();
     setError("");
 
-    if (!title.trim()) return setError("กรุณากรอกชื่อประกาศ");
-    if (!price || isNaN(Number(price)) || Number(price) <= 0) return setError("กรุณากรอกราคาที่ถูกต้อง");
-    if (!province) return setError("กรุณาเลือกจังหวัด");
-    if (!district) return setError("กรุณาเลือกอำเภอ/เขต");
+    const errs = {
+      title: !title.trim(),
+      price: !price || isNaN(Number(price)) || Number(price) <= 0,
+      province: !province,
+      district: !district,
+    };
+    setFieldErrors(errs);
+    if (errs.title || errs.price || errs.province || errs.district) {
+      const firstRef = errs.title ? titleRef
+        : errs.price ? priceRef
+        : errs.province ? provinceRef
+        : districtRef;
+      firstRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
 
     setLoading(true);
     setStep("main");
 
     try {
-      const body: Record<string, unknown> = {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        type,
-        offer,
-        price: Number(price),
+      const listing_details: Record<string, unknown> = {};
+      if (area) listing_details.area = Number(area);
+      if (bedrooms) listing_details.bedrooms = Number(bedrooms);
+      if (bathrooms) listing_details.bathrooms = Number(bathrooms);
+      if (floors) listing_details.floors = Number(floors);
+
+      const addressObj: Record<string, unknown> = {
         province,
         district,
       };
+      if (address.trim()) addressObj.address = address.trim();
+      if (subdistrict.trim()) addressObj.subdistrict = subdistrict.trim();
+      if (postalCode.trim()) addressObj.postal_code = postalCode.trim();
 
-      if (offer === "rent" || offer === "sale_rent") {
-        body.price_rent = priceRent ? Number(priceRent) : null;
+      const body: Record<string, unknown> = {
+        title: title.trim(),
+        description: description.trim() || "",
+        type,
+        offer,
+        price: Number(price),
+        listing_details,
+        address: addressObj,
+      };
+
+      // Get token: prefer session (always fresh from NextAuth), fallback to localStorage
+      let token = (session as any)?.accessToken as string | undefined;
+      if (!token) token = getAccessToken() || undefined;
+      if (!token) {
+        setError("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+        setLoading(false);
+        return;
       }
-      if (area) body.area = Number(area);
-      if (landArea) body.land_area = Number(landArea);
-      if (bedrooms) body.bedrooms = Number(bedrooms);
-      if (bathrooms) body.bathrooms = Number(bathrooms);
-      if (floors) body.floors = Number(floors);
-      if (parking) body.parking = Number(parking);
-      if (yearBuilt) body.year_built = Number(yearBuilt);
-      if (address.trim()) body.address = address.trim();
-      if (subdistrict.trim()) body.subdistrict = subdistrict.trim();
-      if (postalCode.trim()) body.postal_code = postalCode.trim();
 
-      const res = await createListing(body);
+      // Sync session tokens to localStorage so apiFetch retry can refresh if needed
+      const srt = (session as any)?.refreshToken as string | undefined;
+      if (srt) setTokens(token, srt);
+
+      const res = await createListing(body, token);
       if (!res.success) {
-        setError(res.error?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
+        const msg = (res as any).message || res.error?.message || "เกิดข้อผิดพลาด กรุณาลองใหม่";
+        setError(msg);
         setLoading(false);
         return;
       }
 
       const listingId = res.data.id;
 
-      // Upload images
+      // Upload images — use latest token from localStorage (may have been refreshed by retry)
       if (images.length > 0) {
         setStep("uploading");
+        const imgToken = getAccessToken() || token;
         for (let i = 0; i < images.length; i++) {
-          await uploadImage(listingId, images[i], i === coverIndex);
+          await uploadImage(listingId, images[i], i === coverIndex, imgToken);
         }
       }
 
@@ -371,24 +401,31 @@ export default function CreateListingPage() {
           {/* ข้อมูลพื้นฐาน */}
           <div className="space-y-4">
             <h2 className="font-semibold text-gray-800">ข้อมูลพื้นฐาน</h2>
-            <div>
+            <div ref={titleRef}>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 ชื่อประกาศ <span className="text-red-500">*</span>
               </label>
               <Input
                 placeholder="เช่น บ้านเดี่ยว 3 ห้องนอน ใกล้ BTS..."
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => { setTitle(e.target.value); if (fieldErrors.title) setFieldErrors(prev => ({...prev, title: false})); }}
                 maxLength={200}
+                aria-invalid={fieldErrors.title}
               />
+              {fieldErrors.title && <p className="mt-1 text-xs text-red-500">กรุณากรอกชื่อประกาศ</p>}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">คำอธิบาย</label>
               <textarea
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 min-h-[120px] resize-y"
+                rows={4}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-none overflow-hidden"
                 placeholder="อธิบายรายละเอียดของอสังหาริมทรัพย์..."
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                }}
               />
             </div>
           </div>
@@ -437,7 +474,7 @@ export default function CreateListingPage() {
           </div>
 
           {/* ราคา */}
-          <div className="border-t pt-5">
+          <div className="border-t pt-5" ref={priceRef}>
             <h2 className="mb-4 font-semibold text-gray-800">ราคา</h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {(offer === "sale" || offer === "sale_rent") && (
@@ -446,12 +483,15 @@ export default function CreateListingPage() {
                     ราคาขาย (บาท) <span className="text-red-500">*</span>
                   </label>
                   <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="เช่น 1,500,000"
+                    value={price ? Number(price).toLocaleString("th-TH") : ""}
+                    onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, "")); if (fieldErrors.price) setFieldErrors(prev => ({...prev, price: false})); }}
+                    className="[appearance:textfield]"
+                    aria-invalid={fieldErrors.price}
                   />
+                  {fieldErrors.price && <p className="mt-1 text-xs text-red-500">กรุณากรอกราคาที่ถูกต้อง</p>}
                 </div>
               )}
               {offer === "rent" && (
@@ -460,12 +500,15 @@ export default function CreateListingPage() {
                     ราคาเช่า/เดือน (บาท) <span className="text-red-500">*</span>
                   </label>
                   <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="เช่น 15,000"
+                    value={price ? Number(price).toLocaleString("th-TH") : ""}
+                    onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, "")); if (fieldErrors.price) setFieldErrors(prev => ({...prev, price: false})); }}
+                    className="[appearance:textfield]"
+                    aria-invalid={fieldErrors.price}
                   />
+                  {fieldErrors.price && <p className="mt-1 text-xs text-red-500">กรุณากรอกราคาที่ถูกต้อง</p>}
                 </div>
               )}
               {offer === "sale_rent" && (
@@ -474,20 +517,20 @@ export default function CreateListingPage() {
                     ราคาเช่า/เดือน (บาท)
                   </label>
                   <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    value={priceRent}
-                    onChange={(e) => setPriceRent(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="เช่น 15,000"
+                    value={priceRent ? Number(priceRent).toLocaleString("th-TH") : ""}
+                    onChange={(e) => setPriceRent(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="[appearance:textfield]"
                   />
                 </div>
               )}
             </div>
           </div>
-        </section>
 
-        {/* Details */}
-        <section className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
+          {/* รายละเอียด */}
+          <div className="border-t pt-5 space-y-4">
           <h2 className="font-semibold text-gray-800">รายละเอียด</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {!isLand && (
@@ -557,257 +600,257 @@ export default function CreateListingPage() {
               />
             </div>
           </div>
-        </section>
 
-        {/* Location */}
-        <section className="rounded-xl border bg-white p-6 shadow-sm space-y-4">
-          <h2 className="font-semibold text-gray-800">ที่ตั้ง</h2>
+          {/* ที่ตั้ง */}
+          <div className="border-t pt-5 space-y-4">
+            <h2 className="font-semibold text-gray-800">ที่ตั้ง</h2>
 
-          {/* Row 1: เลขที่/ที่อยู่ */}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">เลขที่/ที่อยู่</label>
-            <textarea
-              rows={3}
-              placeholder="เช่น 123/4 ซอยสุขุมวิท 71 ถนนสุขุมวิท..."
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-none"
-            />
-          </div>
-
-          {/* Row 2: จังหวัด + เขต/อำเภอ */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                จังหวัด <span className="text-red-500">*</span>
-              </label>
-              <div ref={provinceRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => { setProvinceOpen((v) => !v); setProvinceSearch(""); }}
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    province ? "border-input text-gray-900" : "border-input text-muted-foreground"
-                  } bg-background`}
-                >
-                  <span>{province || "-- เลือกจังหวัด --"}</span>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${provinceOpen ? "rotate-180" : ""}`} />
-                </button>
-                {provinceOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
-                    <div className="flex items-center gap-2 border-b px-3 py-2">
-                      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
-                        autoFocus
-                        className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        placeholder="ค้นหาจังหวัด..."
-                        value={provinceSearch}
-                        onChange={(e) => setProvinceSearch(e.target.value)}
-                      />
-                    </div>
-                    <ul className="max-h-52 overflow-y-auto py-1">
-                      {filteredProvinces.map((p) => (
-                        <li key={p.id}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProvince(p.nameTh);
-                              setProvinceId(p.id);
-                              setProvinceOpen(false);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
-                              province === p.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
-                            }`}
-                          >
-                            {p.nameTh}
-                          </button>
-                        </li>
-                      ))}
-                      {filteredProvinces.length === 0 && (
-                        <li className="px-4 py-3 text-center text-sm text-muted-foreground">ไม่พบจังหวัด</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                เขต/อำเภอ <span className="text-red-500">*</span>
-              </label>
-              <div ref={districtRef} className="relative">
-                <button
-                  type="button"
-                  disabled={!province}
-                  onClick={() => { setDistrictOpen((v) => !v); setDistrictSearch(""); }}
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background ${
-                    !province ? "cursor-not-allowed opacity-50" : ""
-                  } ${
-                    district ? "border-input text-gray-900" : "border-input text-muted-foreground"
-                  }`}
-                >
-                  <span>{district || "-- เลือกเขต/อำเภอ --"}</span>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${districtOpen ? "rotate-180" : ""}`} />
-                </button>
-                {districtOpen && province && (
-                  <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
-                    <div className="flex items-center gap-2 border-b px-3 py-2">
-                      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
-                        autoFocus
-                        className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        placeholder="ค้นหาเขต/อำเภอ..."
-                        value={districtSearch}
-                        onChange={(e) => setDistrictSearch(e.target.value)}
-                      />
-                    </div>
-                    <ul className="max-h-52 overflow-y-auto py-1">
-                      {filteredDistricts.map((d) => (
-                        <li key={d.id}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDistrict(d.nameTh);
-                              setDistrictId(d.id);
-                              setDistrictOpen(false);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
-                              district === d.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
-                            }`}
-                          >
-                            {d.nameTh}
-                          </button>
-                        </li>
-                      ))}
-                      {filteredDistricts.length === 0 && (
-                        <li className="px-4 py-3 text-center text-sm text-muted-foreground">ไม่พบเขต/อำเภอ</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Row 3: แขวง/ตำบล + รหัสไปรษณีย์ */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">แขวง/ตำบล</label>
-              <div ref={subdistrictRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => { setSubdistrictOpen((v) => !v); setSubdistrictSearch(""); }}
-                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background ${
-                    subdistrict ? "border-input text-gray-900" : "border-input text-muted-foreground"
-                  }`}
-                >
-                  <span>{subdistrict || "-- เลือกแขวง/ตำบล --"}</span>
-                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${subdistrictOpen ? "rotate-180" : ""}`} />
-                </button>
-                {subdistrictOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
-                    <div className="flex items-center gap-2 border-b px-3 py-2">
-                      <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
-                        autoFocus
-                        className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                        placeholder="ค้นหาแขวง/ตำบล..."
-                        value={subdistrictSearch}
-                        onChange={(e) => setSubdistrictSearch(e.target.value)}
-                      />
-                    </div>
-                    <ul className="max-h-52 overflow-y-auto py-1">
-                      {filteredSubdistricts.map((s) => (
-                        <li key={s.id}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSubdistrict(s.nameTh);
-                              setSubdistrictId(s.id);
-                              if (s.postalCode) setPostalCode(s.postalCode);
-                              setSubdistrictOpen(false);
-                            }}
-                            className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
-                              subdistrict === s.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
-                            }`}
-                          >
-                            {s.nameTh}{s.postalCode ? ` (${s.postalCode})` : ""}
-                          </button>
-                        </li>
-                      ))}
-                      {filteredSubdistricts.length === 0 && (
-                        <li className="px-4 py-3 text-center text-sm text-muted-foreground">
-                          {allSubdistricts.length === 0 ? "เลือกจังหวัดก่อน" : "ไม่พบแขวง/ตำบล"}
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div ref={postalRef} className="relative">
-              <label className="mb-1 block text-sm font-medium text-gray-700">รหัสไปรษณีย์</label>
-              <Input
-                placeholder="เช่น 10110"
-                value={postalCode}
-                onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
-                maxLength={5}
+              <label className="mb-1 block text-sm font-medium text-gray-700">เลขที่/ที่อยู่</label>
+              <textarea
+                rows={3}
+                placeholder="เช่น 123/4 ซอยสุขุมวิท 71 ถนนสุขุมวิท..."
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 resize-none"
               />
-              {postalOpen && postalSuggestions.length > 0 && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-md border bg-white shadow-lg">
-                  <p className="border-b px-3 py-2 text-xs text-muted-foreground">เลือกเพื่อ autofill ที่อยู่</p>
-                  <ul className="max-h-52 overflow-y-auto py-1">
-                    {postalSuggestions.map((s, i) => (
-                      <li key={i}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            autofillRef.current = {
-                              districtId: s.districtId,
-                              district: s.district,
-                              subdistrictId: s.subdistrictId,
-                              subdistrict: s.subdistrict,
-                            };
-                            setProvince(s.province);
-                            setProvinceId(s.provinceId);
-                            setPostalCode(s.postalCode ?? postalCode);
-                            setPostalOpen(false);
-                          }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition text-gray-700"
-                        >
-                          <span className="font-medium">{s.subdistrict}</span>
-                          <span className="text-muted-foreground"> › {s.district} › {s.province}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  จังหวัด <span className="text-red-500">*</span>
+                </label>
+                <div ref={provinceRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setProvinceOpen((v) => !v); setProvinceSearch(""); }}
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background ${
+                      fieldErrors.province ? "border-red-500 ring-1 ring-red-500" : ""
+                    } ${
+                      province ? "text-gray-900" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span>{province || "-- เลือกจังหวัด --"}</span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${provinceOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {provinceOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
+                      <div className="flex items-center gap-2 border-b px-3 py-2">
+                        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <input
+                          autoFocus
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          placeholder="ค้นหาจังหวัด..."
+                          value={provinceSearch}
+                          onChange={(e) => setProvinceSearch(e.target.value)}
+                        />
+                      </div>
+                      <ul className="max-h-52 overflow-y-auto py-1">
+                        {filteredProvinces.map((p) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProvince(p.nameTh);
+                                setProvinceId(p.id);
+                                setProvinceOpen(false);                              if (fieldErrors.province) setFieldErrors(prev => ({...prev, province: false}));                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
+                                province === p.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
+                              }`}
+                            >
+                              {p.nameTh}
+                            </button>
+                          </li>
+                        ))}
+                        {filteredProvinces.length === 0 && (
+                          <li className="px-4 py-3 text-center text-sm text-muted-foreground">ไม่พบจังหวัด</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  เขต/อำเภอ <span className="text-red-500">*</span>
+                </label>
+                <div ref={districtRef} className="relative">
+                  <button
+                    type="button"
+                    disabled={!province}
+                    onClick={() => { setDistrictOpen((v) => !v); setDistrictSearch(""); }}
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background ${
+                      !province ? "cursor-not-allowed opacity-50" : ""
+                    } ${
+                      fieldErrors.district ? "border-red-500 ring-1 ring-red-500" : ""
+                    } ${
+                      district ? "text-gray-900" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span>{district || "-- เลือกเขต/อำเภอ --"}</span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${districtOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {districtOpen && province && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
+                      <div className="flex items-center gap-2 border-b px-3 py-2">
+                        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <input
+                          autoFocus
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          placeholder="ค้นหาเขต/อำเภอ..."
+                          value={districtSearch}
+                          onChange={(e) => setDistrictSearch(e.target.value)}
+                        />
+                      </div>
+                      <ul className="max-h-52 overflow-y-auto py-1">
+                        {filteredDistricts.map((d) => (
+                          <li key={d.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDistrict(d.nameTh);
+                                setDistrictId(d.id);
+                                setDistrictOpen(false);                              if (fieldErrors.district) setFieldErrors(prev => ({...prev, district: false}));                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
+                                district === d.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
+                              }`}
+                            >
+                              {d.nameTh}
+                            </button>
+                          </li>
+                        ))}
+                        {filteredDistricts.length === 0 && (
+                          <li className="px-4 py-3 text-center text-sm text-muted-foreground">ไม่พบเขต/อำเภอ</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">แขวง/ตำบล</label>
+                <div ref={subdistrictRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setSubdistrictOpen((v) => !v); setSubdistrictSearch(""); }}
+                    className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background ${
+                      subdistrict ? "border-input text-gray-900" : "border-input text-muted-foreground"
+                    }`}
+                  >
+                    <span>{subdistrict || "-- เลือกแขวง/ตำบล --"}</span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${subdistrictOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {subdistrictOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-md border bg-white shadow-lg">
+                      <div className="flex items-center gap-2 border-b px-3 py-2">
+                        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <input
+                          autoFocus
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          placeholder="ค้นหาแขวง/ตำบล..."
+                          value={subdistrictSearch}
+                          onChange={(e) => setSubdistrictSearch(e.target.value)}
+                        />
+                      </div>
+                      <ul className="max-h-52 overflow-y-auto py-1">
+                        {filteredSubdistricts.map((s) => (
+                          <li key={s.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSubdistrict(s.nameTh);
+                                setSubdistrictId(s.id);
+                                if (s.postalCode) setPostalCode(s.postalCode);
+                                setSubdistrictOpen(false);
+                              }}
+                              className={`w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition ${
+                                subdistrict === s.nameTh ? "bg-blue-50 font-medium text-blue-900" : "text-gray-700"
+                              }`}
+                            >
+                              {s.nameTh}{s.postalCode ? ` (${s.postalCode})` : ""}
+                            </button>
+                          </li>
+                        ))}
+                        {filteredSubdistricts.length === 0 && (
+                          <li className="px-4 py-3 text-center text-sm text-muted-foreground">
+                            {allSubdistricts.length === 0 ? "เลือกจังหวัดก่อน" : "ไม่พบแขวง/ตำบล"}
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div ref={postalRef} className="relative">
+                <label className="mb-1 block text-sm font-medium text-gray-700">รหัสไปรษณีย์</label>
+                <Input
+                  placeholder="เช่น 10110"
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  maxLength={5}
+                />
+                {postalOpen && postalSuggestions.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-md border bg-white shadow-lg">
+                    <p className="border-b px-3 py-2 text-xs text-muted-foreground">เลือกเพื่อ autofill ที่อยู่</p>
+                    <ul className="max-h-52 overflow-y-auto py-1">
+                      {postalSuggestions.map((s, i) => (
+                        <li key={i}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              autofillRef.current = {
+                                districtId: s.districtId,
+                                district: s.district,
+                                subdistrictId: s.subdistrictId,
+                                subdistrict: s.subdistrict,
+                              };
+                              setProvince(s.province);
+                              setProvinceId(s.provinceId);
+                              setPostalCode(s.postalCode ?? postalCode);
+                              setPostalOpen(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 hover:text-blue-900 transition text-gray-700"
+                          >
+                            <span className="font-medium">{s.subdistrict}</span>
+                            <span className="text-muted-foreground"> › {s.district} › {s.province}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </section>
+          </div>
 
-        {/* Facilities */}
-        {facilities.length > 0 && (
-          <section className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-4 font-semibold text-gray-800">สิ่งอำนวยความสะดวก</h2>
-            <div className="flex flex-wrap gap-2">
-              {facilities.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => toggleFacility(f.id)}
-                  className={`rounded-full border px-4 py-1.5 text-sm transition ${
-                    selectedFacilities.includes(f.id)
-                      ? "border-blue-900 bg-blue-900 text-white"
-                      : "border-gray-200 text-gray-600 hover:border-blue-900 hover:text-blue-900"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+          {/* สิ่งอำนวยความสะดวก */}
+          {facilities.length > 0 && (
+            <div className="border-t pt-5">
+              <h2 className="mb-4 font-semibold text-gray-800">สิ่งอำนวยความสะดวก</h2>
+              <div className="flex flex-wrap gap-2">
+                {facilities.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => toggleFacility(f.id)}
+                    className={`rounded-full border px-4 py-1.5 text-sm transition ${
+                      selectedFacilities.includes(f.id)
+                        ? "border-blue-900 bg-blue-900 text-white"
+                        : "border-gray-200 text-gray-600 hover:border-blue-900 hover:text-blue-900"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {error && (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>

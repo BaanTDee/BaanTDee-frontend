@@ -170,7 +170,9 @@ export interface ListingsQuery {
   max_price?: number;
   q?: string;
   page?: number;
-  per_page?: number;
+  limit?: number;
+  sort?: string;
+  user_id?: number;
 }
 
 // ---------- Favorites ----------

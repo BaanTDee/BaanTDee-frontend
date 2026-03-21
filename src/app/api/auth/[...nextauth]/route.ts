@@ -30,6 +30,13 @@ interface BackendAuthResponse {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
+/** Extract refresh_token value from a Set-Cookie header string */
+function extractRefreshToken(setCookie: string | null): string | undefined {
+  if (!setCookie) return undefined;
+  const match = setCookie.match(/refresh_token=([^;]+)/);
+  return match?.[1] || undefined;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     // Facebook OAuth
@@ -79,13 +86,17 @@ export const authOptions: NextAuthOptions = {
           const data: BackendAuthResponse = await res.json();
 
           if (data.success && data.data) {
+            // Backend sends refresh_token in Set-Cookie (HttpOnly), not in body
+            const refreshToken =
+              data.data.refresh_token || extractRefreshToken(res.headers.get("set-cookie"));
+
             return {
               id: String(data.data.user.id),
               name: data.data.user.name,
               email: data.data.user.email,
               image: data.data.user.avatar,
               accessToken: data.data.access_token,
-              refreshToken: data.data.refresh_token,
+              refreshToken,
               backendUser: data.data.user,
             } as any;
           }
@@ -119,9 +130,10 @@ export const authOptions: NextAuthOptions = {
           const data: BackendAuthResponse = await res.json();
 
           if (data.success && data.data) {
-            // Store backend tokens in user object (will be available in jwt callback)
+            const refreshToken =
+              data.data.refresh_token || extractRefreshToken(res.headers.get("set-cookie"));
             (user as any).backendAccessToken = data.data.access_token;
-            (user as any).backendRefreshToken = data.data.refresh_token;
+            (user as any).backendRefreshToken = refreshToken;
             (user as any).backendUser = data.data.user;
             return true;
           }
@@ -152,9 +164,10 @@ export const authOptions: NextAuthOptions = {
           const data: BackendAuthResponse = await res.json();
 
           if (data.success && data.data) {
-            // Store backend tokens in user object (will be available in jwt callback)
+            const refreshToken =
+              data.data.refresh_token || extractRefreshToken(res.headers.get("set-cookie"));
             (user as any).backendAccessToken = data.data.access_token;
-            (user as any).backendRefreshToken = data.data.refresh_token;
+            (user as any).backendRefreshToken = refreshToken;
             (user as any).backendUser = data.data.user;
             return true;
           }
@@ -193,6 +206,10 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // NOTE: Do NOT auto-refresh here. Backend uses single-use refresh tokens.
+      // Server-side refresh would consume the token, leaving the client unable to refresh.
+      // Client-side apiFetch handles 401 retry with its own refresh flow.
+
       return token;
     },
 
@@ -216,7 +233,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
   secret: process.env.NEXTAUTH_SECRET,

@@ -57,14 +57,16 @@ async function tryRefresh(): Promise<boolean> {
   if (!rt) return false;
 
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
+    // Use Next.js API proxy because the backend reads refresh_token from
+    // an HttpOnly cookie — the browser cannot set Cookie headers directly.
+    const res = await fetch("/api/auth/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: rt }),
     });
     if (!res.ok) return false;
     const json = await res.json();
-    if (json.success) {
+    if (json.success && json.data) {
       setTokens(json.data.access_token, json.data.refresh_token);
       return true;
     }
@@ -74,11 +76,36 @@ async function tryRefresh(): Promise<boolean> {
   }
 }
 
+/** Check if the current access token is expired (or about to) and refresh proactively. */
+export async function ensureFreshToken(): Promise<string | null> {
+  const token = getAccessToken();
+  if (!token) return null;
+
+  try {
+    const parts = token.split(".");
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1]));
+      const bufferMs = 60_000; // 1 min buffer
+      if (Date.now() >= payload.exp * 1000 - bufferMs) {
+        const ok = await tryRefresh();
+        return ok ? getAccessToken() : null;
+      }
+    }
+  } catch {
+    // token parse failed — try refresh anyway
+    const ok = await tryRefresh();
+    return ok ? getAccessToken() : null;
+  }
+
+  return token; // still valid
+}
+
 async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
   withAuth = false,
-  retry = true
+  retry = true,
+  tokenOverride?: string
 ): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -90,7 +117,7 @@ async function apiFetch<T>(
   }
 
   if (withAuth) {
-    const token = getAccessToken();
+    const token = tokenOverride || getAccessToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
@@ -112,13 +139,17 @@ async function apiFetch<T>(
     refreshPromise = null;
 
     if (refreshed) {
+      // Use the newly refreshed token from localStorage, not the stale tokenOverride
       return apiFetch<T>(path, options, withAuth, false);
     }
-    // Refresh failed — clear tokens
+    // Refresh failed — clear localStorage tokens but don't redirect
+    // (NextAuth handles session-based auth separately)
     clearTokens();
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+  }
+
+  // Handle 204 No Content — return a success wrapper
+  if (res.status === 204) {
+    return { success: true, data: null } as T;
   }
 
   const json = await res.json();
@@ -188,12 +219,15 @@ export async function getListingBySlug(
 }
 
 export async function createListing(
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  token?: string
 ): Promise<ApiResponse<ListingSummary>> {
   return apiFetch(
     "/listings",
     { method: "POST", body: JSON.stringify(body) },
-    true
+    true,
+    true,
+    token
   );
 }
 
@@ -217,7 +251,8 @@ export async function deleteListing(id: number): Promise<ApiResponse<{ message: 
 export async function uploadImage(
   listingId: number,
   file: File,
-  isCover = false
+  isCover = false,
+  token?: string
 ): Promise<ApiResponse<{ id: number; url: string }>> {
   const form = new FormData();
   form.append("image", file);
@@ -226,7 +261,9 @@ export async function uploadImage(
   return apiFetch(
     `/listings/${listingId}/images`,
     { method: "POST", body: form },
-    true
+    true,
+    true,
+    token
   );
 }
 
@@ -263,19 +300,65 @@ export async function removeFacility(
 
 // ---------- Favorites API ----------
 
-export async function addFavorite(listingId: number): Promise<ApiResponse<FavoriteToggle>> {
-  return apiFetch(`/listings/${listingId}/favorite`, { method: "POST" }, true);
+export async function addFavorite(listingId: number, token?: string): Promise<void> {
+  const res = await apiFetch<any>(
+    `/listings/${listingId}/favorite`,
+    { method: "POST" },
+    true,
+    true,
+    token
+  );
+  if (res?.statusCode && res.statusCode >= 400) throw new Error(res.message || "addFavorite failed");
 }
 
-export async function removeFavorite(listingId: number): Promise<ApiResponse<FavoriteToggle>> {
-  return apiFetch(`/listings/${listingId}/favorite`, { method: "DELETE" }, true);
+export async function removeFavorite(listingId: number, token?: string): Promise<void> {
+  const res = await apiFetch<any>(
+    `/listings/${listingId}/favorite`,
+    { method: "DELETE" },
+    true,
+    true,
+    token
+  );
+  if (res?.statusCode && res.statusCode >= 400) throw new Error(res.message || "removeFavorite failed");
 }
 
-export async function getFavorites(
-  page = 1,
-  perPage = 12
-): Promise<ApiPaginatedResponse<FavoriteItem>> {
-  return apiFetch(`/favorites?page=${page}&per_page=${perPage}`, {}, true);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toFavoriteItem(raw: any): FavoriteItem {
+  const l = raw.listing || {};
+  const images: { url: string; is_cover: boolean }[] = l.images || [];
+  const cover = images.find((i) => i.is_cover) || images[0];
+  return {
+    listing_id: Number(raw.listing_id ?? l.id),
+    slug: l.slug ?? "",
+    title: l.title ?? "",
+    type: l.type ?? "house",
+    offer: l.offer ?? "sale",
+    price: Number(l.price ?? 0),
+    province: l.province ?? "",
+    district: l.district ?? "",
+    cover_url: l.cover_url ?? cover?.url ?? null,
+    favorited_at: raw.created_at ?? "",
+  };
+}
+
+export async function getFavorites(token?: string): Promise<{ success: true; data: FavoriteItem[] } | { success: false }> {
+  // Backend returns raw array (no {success,data} wrapper)
+  const res = await apiFetch<unknown>("/favorites", {}, true, true, token);
+  // Handle both raw array and potential wrapped format
+  const arr = Array.isArray(res) ? res : (res as { data?: unknown[] }).data;
+  if (!Array.isArray(arr)) return { success: false };
+  return { success: true, data: arr.map(toFavoriteItem) };
+}
+
+/** Get just the listing IDs the current user has favorited */
+export async function getMyFavoriteIds(token?: string): Promise<Set<number>> {
+  try {
+    const res = await getFavorites(token);
+    if (res.success) {
+      return new Set(res.data.map((f) => f.listing_id));
+    }
+  } catch { /* ignore */ }
+  return new Set();
 }
 
 // ---------- Addresses API ----------
@@ -342,7 +425,7 @@ export async function getInquiries(
 
 /** Format price number to Thai display string e.g. 5500000 → "5,500,000" */
 export function formatPrice(price: number): string {
-  return price.toLocaleString("th-TH");
+  return Math.round(price).toLocaleString("en-US");
 }
 
 /** Map listing type to Thai label */
