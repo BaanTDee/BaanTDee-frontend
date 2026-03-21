@@ -282,9 +282,17 @@ function SearchContent() {
                   className="text-xs h-8"
                 />
               </div>
+              {(minPrice || maxPrice) && (
+                <button
+                  onClick={() => { setMinPrice(""); setMaxPrice(""); setSliderMin(0); setSliderMax(PRICE_MAX); setPage(1); }}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                >
+                  <X className="h-3.5 w-3.5" /> ล้างราคา
+                </button>
+              )}
             </div>
 
-            {hasFilters && (
+            {!!(query || type || offer || province) && (
               <button
                 onClick={clearFilters}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 py-2 text-sm text-red-600 hover:bg-red-50 transition"

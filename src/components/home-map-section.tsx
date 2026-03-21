@@ -61,7 +61,7 @@ export default function HomeMapSection() {
     : provinceList;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <section id="map-section" className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       {/* Section heading */}
       <div className="mb-6 flex items-center justify-between">
         <div>

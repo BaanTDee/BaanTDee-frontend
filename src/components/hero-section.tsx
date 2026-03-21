@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import LocationFilterModal from "@/components/location-filter-modal";
 
 const quickFilters = [
   { label: "บ้านเดี่ยว", type: "house" },
@@ -94,8 +93,14 @@ export default function HeroSection() {
             </button>
           ))}
 
-          {/* Location filter modal — แผนที่ประเทศไทย */}
-          <LocationFilterModal onSelect={handleLocationSelect} />
+          {/* Location filter — scroll to map */}
+          <button
+            onClick={() => document.getElementById("map-section")?.scrollIntoView({ behavior: "smooth" })}
+            className="flex items-center gap-2 rounded-full border border-white/30 px-4 py-1.5 text-sm text-white/90 transition hover:bg-white/10"
+          >
+            <Map className="h-4 w-4" />
+            เลือกจากแผนที่
+          </button>
         </div>
       </div>
     </section>

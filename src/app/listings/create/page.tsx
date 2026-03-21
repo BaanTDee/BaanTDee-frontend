@@ -423,7 +423,7 @@ export default function CreateListingPage() {
                     key={o.value}
                     type="button"
                     onClick={() => setOffer(o.value)}
-                    className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
+                    className={`flex-1 rounded-full border py-2 text-sm font-medium transition ${
                       offer === o.value
                         ? "border-blue-900 bg-blue-900 text-white"
                         : "border-gray-200 text-gray-600 hover:border-blue-900 hover:text-blue-900"
