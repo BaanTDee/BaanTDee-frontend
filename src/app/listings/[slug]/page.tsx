@@ -69,16 +69,36 @@ export default function ListingDetailPage() {
           setData(res.data);
           // Record this view for personalised recommendations
           recordView(slug, res.data.listing.province, res.data.listing.type);
-          // Fetch related listings from same province
-          const related = await getListings({
-            province: res.data.listing.province,
-            limit: 6,
-          });
-          if (related.success) {
-            setRelatedListings(
-              related.data.filter((l) => l.slug !== slug).slice(0, 4)
-            );
+          // Fetch related listings: same province+type first, fallback to same province
+          const { province, type, price } = res.data.listing;
+          const priceMin = Math.round(price * 0.5);
+          const priceMax = Math.round(price * 1.5);
+          const [r1, r2] = await Promise.all([
+            getListings({ province, type, limit: 8 }),
+            getListings({ province, limit: 8 }),
+          ]);
+          const seen = new Set<string>();
+          const merged: ListingSummary[] = [];
+          for (const res2 of [r1, r2]) {
+            if (res2.success) {
+              for (const l of res2.data) {
+                if (l.slug !== slug && !seen.has(l.slug)) {
+                  seen.add(l.slug);
+                  merged.push(l);
+                }
+              }
+            }
           }
+          // Sort: same type first, then by price proximity
+          merged.sort((a, b) => {
+            const aType = a.type === type ? 0 : 1;
+            const bType = b.type === type ? 0 : 1;
+            if (aType !== bType) return aType - bType;
+            return Math.abs(a.price - price) - Math.abs(b.price - price);
+          });
+          setRelatedListings(merged.filter(l => l.price >= priceMin && l.price <= priceMax).slice(0, 4).concat(
+            merged.filter(l => l.price < priceMin || l.price > priceMax)
+          ).slice(0, 4));
         } else {
           setError(res.error.message);
         }
