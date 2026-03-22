@@ -66,6 +66,7 @@ export default function FeaturedListings() {
               tag="PREMIUM"
               offer={listing.offer}
               type={listing.type}
+              createdAt={listing.created_at}
             />
           ))
         ) : (

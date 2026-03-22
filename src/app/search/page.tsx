@@ -356,6 +356,7 @@ function SearchContent() {
                     tag={listing.is_featured ? "PREMIUM" : undefined}
                     offer={listing.offer}
                     type={listing.type}
+                    createdAt={listing.created_at}
                   />
                 ))}
               </div>

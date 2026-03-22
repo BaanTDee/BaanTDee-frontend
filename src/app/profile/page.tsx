@@ -175,6 +175,7 @@ export default function ProfilePage() {
                 type={listing.type}
                 tag={listing.is_featured ? "PREMIUM" : undefined}
                 editHref={`/my-listings/${listing.slug}/edit`}
+                createdAt={listing.created_at}
               />
             ))}
           </div>

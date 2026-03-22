@@ -98,6 +98,7 @@ export default function LatestListings() {
               tag={listing.is_featured ? "PREMIUM" : undefined}
               offer={listing.offer}
               type={listing.type}
+              createdAt={listing.created_at}
             />
           ))
         ) : (

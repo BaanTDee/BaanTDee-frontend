@@ -165,6 +165,7 @@ export default function MyListingsPage() {
                 type={listing.type}
                 tag={listing.is_featured ? "PREMIUM" : undefined}
                 editHref={`/my-listings/${listing.slug}/edit`}
+                createdAt={listing.created_at}
               />
             ))}
           </div>

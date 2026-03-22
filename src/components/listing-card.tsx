@@ -22,6 +22,7 @@ export interface ListingCardProps {
   type?: string;
   isFavorited?: boolean;
   editHref?: string;
+  createdAt?: string;
 }
 
 export default function ListingCard({
@@ -35,7 +36,11 @@ export default function ListingCard({
   ownerType,
   offer,
   editHref,
+  createdAt,
 }: ListingCardProps) {
+  const isNew = createdAt
+    ? (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24) <= 7
+    : false;
   const { data: session } = useSession();
   const { has, toggle } = useFavorites();
   const router = useRouter();
@@ -74,12 +79,19 @@ export default function ListingCard({
           onError={handleImgError}
         />
 
-        {/* Tag badge */}
-        {tag && (
-          <Badge className={`absolute left-2 top-2 text-xs ${tagColors[tag]}`}>
-            🔥 {tag}
-          </Badge>
-        )}
+        {/* Tag + New badges (top-left row) */}
+        <div className="absolute left-2 top-2 flex gap-1">
+          {tag && (
+            <Badge className={`text-xs ${tagColors[tag]}`}>
+              🔥 {tag}
+            </Badge>
+          )}
+          {isNew && (
+            <Badge className="text-xs bg-red-500 text-white">
+              ใหม่
+            </Badge>
+          )}
+        </div>
 
         {/* Offer badge */}
         {offerText && (

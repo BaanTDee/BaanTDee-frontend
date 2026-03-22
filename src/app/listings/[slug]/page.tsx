@@ -437,19 +437,6 @@ export default function ListingDetailPage() {
             </div>
           </div>
 
-          {/* Owner info */}
-          <div className="rounded-lg border p-4">
-            <h3 className="font-bold text-gray-900">ผู้จัดการทรัพย์ :</h3>
-            <p className="mt-1 font-medium">{listing.user_name}</p>
-            {listing.user_phone && (
-              <a
-                href={`tel:${listing.user_phone}`}
-                className="mt-1 flex items-center gap-2 text-sm text-blue-900 hover:underline"
-              >
-                <Phone className="h-4 w-4" /> {listing.user_phone}
-              </a>
-            )}
-          </div>
 
           {/* Contact button */}
           <Button
