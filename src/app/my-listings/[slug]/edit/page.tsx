@@ -477,6 +477,7 @@ export default function EditListingPage() {
       // Build update body
       const listing_details: Record<string, unknown> = {};
       if (area) listing_details.area = Number(area);
+      if (landArea) listing_details.land_area = Number(landArea);
       if (bedrooms) listing_details.bedrooms = Number(bedrooms);
       if (bathrooms) listing_details.bathrooms = Number(bathrooms);
       if (floors) listing_details.floors = Number(floors);

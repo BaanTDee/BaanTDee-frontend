@@ -315,9 +315,16 @@ export default function ListingDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900 leading-tight">
               {listing.title}
             </h1>
-            <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground">
+            {listing.address && (
+              <p className="mt-1.5 text-sm text-gray-700">
+                {listing.address}
+              </p>
+            )}
+            <p className="mt-1.5 flex items-start gap-1.5 text-sm text-muted-foreground">
               <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-              {fullAddress}
+              {[listing.subdistrict, listing.district, listing.province]
+                .filter(Boolean)
+                .join(", ")}
             </p>
             {hasCoords && (
               <p className="mt-1 text-xs text-muted-foreground/70">
@@ -342,50 +349,55 @@ export default function ListingDetailPage() {
             )}
           </div>
 
-          {/* Quick stats */}
-          <div className="grid grid-cols-2 gap-3">
-            {listing.area != null && (
-              <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                <Maximize className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-sm text-muted-foreground">พื้นที่ใช้สอย</p>
-                  <p className="font-bold">
-                    {listing.area} <span className="text-sm font-normal">ตร.ม.</span>
-                  </p>
+          {/* Area stats — icon rows like Alpha Capital */}
+          {(listing.area != null || listing.land_area != null) && (
+            <div className="space-y-2">
+              {listing.area != null && (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                    <Building className="h-4 w-4 text-blue-900" />
+                  </div>
+                  <span className="text-sm text-gray-700">
+                    พื้นที่ใช้สอย : <span className="font-semibold">{listing.area} ตร.ม.</span>
+                  </span>
                 </div>
-              </div>
-            )}
-            {listing.land_area != null && (
-              <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                <Maximize className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-sm text-muted-foreground">เนื้อที่</p>
-                  <p className="font-bold">
-                    {listing.land_area}{" "}
-                    <span className="text-sm font-normal">ตร.ว.</span>
-                  </p>
+              )}
+              {listing.land_area != null && (
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-100">
+                    <Maximize className="h-4 w-4 text-blue-900" />
+                  </div>
+                  <span className="text-sm text-gray-700">
+                    เนื้อที่ : <span className="font-semibold">{listing.land_area} ตร.ว.</span>
+                  </span>
                 </div>
-              </div>
-            )}
-            {listing.bedrooms != null && (
-              <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                <Bed className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-sm text-muted-foreground">ห้องนอน</p>
-                  <p className="font-bold">{listing.bedrooms}</p>
+              )}
+            </div>
+          )}
+
+          {/* Quick stats — bedrooms / bathrooms */}
+          {(listing.bedrooms != null || listing.bathrooms != null) && (
+            <div className="grid grid-cols-2 gap-3">
+              {listing.bedrooms != null && (
+                <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                  <Bed className="h-5 w-5 text-blue-900" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">ห้องนอน</p>
+                    <p className="font-bold">{listing.bedrooms}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-            {listing.bathrooms != null && (
-              <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                <Bath className="h-5 w-5 text-blue-900" />
-                <div>
-                  <p className="text-sm text-muted-foreground">ห้องน้ำ</p>
-                  <p className="font-bold">{listing.bathrooms}</p>
+              )}
+              {listing.bathrooms != null && (
+                <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                  <Bath className="h-5 w-5 text-blue-900" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">ห้องน้ำ</p>
+                    <p className="font-bold">{listing.bathrooms}</p>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Detail grid */}
           <div className="divide-y text-sm">
