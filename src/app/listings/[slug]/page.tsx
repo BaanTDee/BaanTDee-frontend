@@ -378,27 +378,13 @@ export default function ListingDetailPage() {
             </div>
           )}
 
-          {/* Quick stats — bedrooms / bathrooms */}
-          {(listing.bedrooms != null || listing.bathrooms != null) && (
-            <div className="grid grid-cols-2 gap-3">
-              {listing.bedrooms != null && (
-                <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                  <Bed className="h-5 w-5 text-blue-900" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">ห้องนอน</p>
-                    <p className="font-bold">{listing.bedrooms}</p>
-                  </div>
-                </div>
-              )}
-              {listing.bathrooms != null && (
-                <div className="flex items-center gap-2.5 rounded-lg border p-3">
-                  <Bath className="h-5 w-5 text-blue-900" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">ห้องน้ำ</p>
-                    <p className="font-bold">{listing.bathrooms}</p>
-                  </div>
-                </div>
-              )}
+          {/* Description */}
+          {listing.description && (
+            <div>
+              <h3 className="font-semibold text-gray-900">รายละเอียดทรัพย์</h3>
+              <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
+                {listing.description}
+              </p>
             </div>
           )}
 
@@ -440,6 +426,29 @@ export default function ListingDetailPage() {
             </div>
           </div>
 
+          {/* Quick stats — bedrooms / bathrooms */}
+          {(listing.bedrooms != null || listing.bathrooms != null) && (
+            <div className="grid grid-cols-2 gap-3">
+              {listing.bedrooms != null && (
+                <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                  <Bed className="h-5 w-5 text-blue-900" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">ห้องนอน</p>
+                    <p className="font-bold">{listing.bedrooms}</p>
+                  </div>
+                </div>
+              )}
+              {listing.bathrooms != null && (
+                <div className="flex items-center gap-2.5 rounded-lg border p-3">
+                  <Bath className="h-5 w-5 text-blue-900" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">ห้องน้ำ</p>
+                    <p className="font-bold">{listing.bathrooms}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Contact button */}
           <Button
@@ -520,14 +529,7 @@ export default function ListingDetailPage() {
       {/* ===== DESCRIPTION & FACILITIES ===== */}
       <div className="mt-10 grid gap-8 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-6">
-          {listing.description && (
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">รายละเอียดทรัพย์</h2>
-              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-                {listing.description}
-              </p>
-            </div>
-          )}
+          {listing.description && null}
 
           {facilities.length > 0 && (
             <div>

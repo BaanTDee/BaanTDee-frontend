@@ -191,7 +191,7 @@ export default function CreateListingPage() {
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({ title: false, price: false, province: false, district: false, landArea: false });
+  const [fieldErrors, setFieldErrors] = useState({ title: false, price: false, province: false, district: false, landArea: false, images: false });
   const [step, setStep] = useState<"main" | "uploading">("main");
 
   useEffect(() => {
@@ -263,9 +263,14 @@ export default function CreateListingPage() {
       province: !province,
       district: !district,
       landArea: !landArea || isNaN(Number(landArea)) || Number(landArea) <= 0,
+      images: images.length === 0,
     };
     setFieldErrors(errs);
-    if (errs.title || errs.price || errs.province || errs.district || errs.landArea) {
+    if (errs.title || errs.price || errs.province || errs.district || errs.landArea || errs.images) {
+      if (errs.images) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
       const firstRef = errs.title ? titleRef
         : errs.price ? priceRef
         : errs.province ? provinceRef
@@ -355,7 +360,7 @@ export default function CreateListingPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Images */}
         <section className="rounded-xl border bg-white p-6 shadow-sm">
-          <h2 className="mb-1 font-semibold text-gray-800">รูปภาพ (สูงสุด 10 รูป)</h2>
+          <h2 className="mb-1 font-semibold text-gray-800">รูปภาพ (สูงสุด 10 รูป) <span className="text-red-500">*</span></h2>
           <p className="mb-4 text-xs text-muted-foreground">คลิกที่ ★ เพื่อเลือกเป็นรูปหลัก</p>
           <div className="flex flex-wrap gap-3">
             {previews.map((src, idx) => (
@@ -415,6 +420,9 @@ export default function CreateListingPage() {
             className="hidden"
             onChange={handleImageAdd}
           />
+          {fieldErrors.images && (
+            <p className="mt-3 text-sm text-red-500">กรุณาอัปโหลดรูปอย่างน้อย 1 รูป</p>
+          )}
         </section>
 
         {/* Basic Info + Type + Offer + Price */}
