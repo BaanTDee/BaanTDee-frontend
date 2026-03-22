@@ -37,6 +37,7 @@ import {
   offerLabel,
 } from "@/lib/api";
 import { useFavorites } from "@/context/favorites-context";
+import { recordView } from "@/lib/recommendations";
 import type { ListingDetailResponse, ListingSummary, InquiryBody } from "@/lib/types";
 
 export default function ListingDetailPage() {
@@ -66,6 +67,8 @@ export default function ListingDetailPage() {
         const res = await getListingBySlug(slug);
         if (res.success) {
           setData(res.data);
+          // Record this view for personalised recommendations
+          recordView(slug, res.data.listing.province, res.data.listing.type);
           // Fetch related listings from same province
           const related = await getListings({
             province: res.data.listing.province,

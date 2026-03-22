@@ -5,40 +5,93 @@ import Link from "next/link";
 import { ChevronRight, Loader2 } from "lucide-react";
 import ListingCard from "@/components/listing-card";
 import { getListings, formatPrice } from "@/lib/api";
+import { hasPrefs, getTopProvinces, getTopTypes, getViewedSlugs } from "@/lib/recommendations";
 import type { ListingSummary } from "@/lib/types";
 
 export default function FeaturedListings() {
   const [listings, setListings] = useState<ListingSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPersonalised, setIsPersonalised] = useState(false);
 
   useEffect(() => {
-    async function fetchFeatured() {
+    async function fetchRecommended() {
       try {
-        // Backend doesn't have a dedicated "featured" flag query,
-        // so we fetch the first page and take featured ones.
-        // If backend adds ?featured=true param later, just switch here.
-        const res = await getListings({ limit: 20 });
-        if (res.success && Array.isArray(res.data)) {
-          const featured = res.data.filter((l) => l.is_featured);
-          setListings(featured.length > 0 ? featured.slice(0, 8) : res.data.slice(0, 6));
+        if (hasPrefs()) {
+          // --- Personalised path ---
+          setIsPersonalised(true);
+          const topProvinces = getTopProvinces(2);
+          const topTypes = getTopTypes(2);
+          const viewedSlugs = new Set(getViewedSlugs());
+
+          // Fetch up to 3 batches in parallel: top province, 2nd province, top type
+          const queries = [
+            getListings({ province: topProvinces[0], limit: 12, sort: "view_count" }),
+            topProvinces[1]
+              ? getListings({ province: topProvinces[1], limit: 8, sort: "view_count" })
+              : Promise.resolve({ success: false } as const),
+            topTypes[0]
+              ? getListings({ type: topTypes[0] as never, limit: 8, sort: "view_count" })
+              : Promise.resolve({ success: false } as const),
+          ];
+
+          const [r1, r2, r3] = await Promise.all(queries);
+
+          const seen = new Set<number>();
+          const merged: ListingSummary[] = [];
+
+          for (const res of [r1, r2, r3]) {
+            if (res.success && Array.isArray(res.data)) {
+              for (const l of res.data) {
+                if (!seen.has(l.id) && !viewedSlugs.has(l.slug)) {
+                  seen.add(l.id);
+                  merged.push(l);
+                }
+              }
+            }
+          }
+
+          // Sort: featured first, then by view_count desc
+          merged.sort((a, b) => {
+            if (a.is_featured !== b.is_featured) return a.is_featured ? -1 : 1;
+            return (b.view_count ?? 0) - (a.view_count ?? 0);
+          });
+
+          setListings(merged.slice(0, 8));
         } else {
-          setListings([]);
+          // --- Default path (no history): featured or latest ---
+          setIsPersonalised(false);
+          const res = await getListings({ limit: 20 });
+          if (res.success && Array.isArray(res.data)) {
+            const featured = res.data.filter((l) => l.is_featured);
+            setListings(
+              (featured.length > 0 ? featured : res.data).slice(0, 8)
+            );
+          } else {
+            setListings([]);
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch featured listings:', err);
+        console.error("Failed to fetch recommendations:", err);
         setListings([]);
       } finally {
         setLoading(false);
       }
     }
-    fetchFeatured();
+    fetchRecommended();
   }, []);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">แนะนำสำหรับคุณ</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">แนะนำสำหรับคุณ</h2>
+          {isPersonalised && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              จากประวัติการดูของคุณ
+            </p>
+          )}
+        </div>
         <Link
           href="/search"
           className="flex items-center gap-1 text-sm text-blue-900 hover:underline"
@@ -53,7 +106,7 @@ export default function FeaturedListings() {
           <div className="flex w-full items-center justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-blue-900" />
           </div>
-        ) : Array.isArray(listings) && listings.length > 0 ? (
+        ) : listings.length > 0 ? (
           listings.map((listing) => (
             <ListingCard
               key={listing.id}
@@ -63,7 +116,7 @@ export default function FeaturedListings() {
               location={`${listing.district} ${listing.province}`}
               price={formatPrice(listing.price)}
               image={listing.cover_url || "/placeholder-house.svg"}
-              tag="PREMIUM"
+              tag={listing.is_featured ? "PREMIUM" : undefined}
               offer={listing.offer}
               type={listing.type}
               createdAt={listing.created_at}
@@ -78,3 +131,4 @@ export default function FeaturedListings() {
     </section>
   );
 }
+
