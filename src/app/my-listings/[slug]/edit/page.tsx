@@ -175,6 +175,7 @@ export default function EditListingPage() {
     price: false,
     province: false,
     district: false,
+    landArea: false,
   });
 
   // Load listing data
@@ -445,9 +446,10 @@ export default function EditListingPage() {
       price: !price || isNaN(Number(price)) || Number(price) <= 0,
       province: !province,
       district: !district,
+      landArea: !landArea || isNaN(Number(landArea)) || Number(landArea) <= 0,
     };
     setFieldErrors(errs);
-    if (errs.title || errs.price || errs.province || errs.district) {
+    if (errs.title || errs.price || errs.province || errs.district || errs.landArea) {
       const firstRef = errs.title
         ? titleRef
         : errs.price
@@ -476,8 +478,8 @@ export default function EditListingPage() {
 
       // Build update body
       const listing_details: Record<string, unknown> = {};
-      if (area) listing_details.area = Number(area);
-      if (landArea) listing_details.land_area = Number(landArea);
+      listing_details.area = area ? Number(area) : null;
+      listing_details.land_area = landArea ? Number(landArea) : null;
       if (bedrooms) listing_details.bedrooms = Number(bedrooms);
       if (bathrooms) listing_details.bathrooms = Number(bathrooms);
       if (floors) listing_details.floors = Number(floors);
@@ -957,15 +959,18 @@ export default function EditListingPage() {
               )}
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {isLand ? "พื้นที่ (ตร.ว.)" : "พื้นที่ดิน (ตร.ว.)"}
+                  {isLand ? "พื้นที่ (ตร.ว.)" : "พื้นที่ดิน (ตร.ว.)"} <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="number"
                   min={0}
                   placeholder="0"
                   value={landArea}
-                  onChange={(e) => setLandArea(e.target.value)}
+                  onChange={(e) => { setLandArea(e.target.value); if (fieldErrors.landArea) setFieldErrors(prev => ({...prev, landArea: false})); }}
+                  aria-invalid={fieldErrors.landArea}
+                  className={fieldErrors.landArea ? "border-red-500 ring-1 ring-red-500" : ""}
                 />
+                {fieldErrors.landArea && <p className="mt-1 text-xs text-red-500">กรุณากรอกพื้นที่ดิน</p>}
               </div>
             </div>
 

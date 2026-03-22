@@ -280,7 +280,7 @@ export default function CreateListingPage() {
 
     try {
       const listing_details: Record<string, unknown> = {};
-      if (area) listing_details.area = Number(area);
+      listing_details.area = area ? Number(area) : null;
       if (landArea) listing_details.land_area = Number(landArea);
       if (bedrooms) listing_details.bedrooms = Number(bedrooms);
       if (bathrooms) listing_details.bathrooms = Number(bathrooms);
