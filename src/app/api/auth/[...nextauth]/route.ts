@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              facebook_id: profile?.id,
+              facebook_id: (profile as any)?.id,
               access_token: account.access_token,
               name: user.name || "",
               email: user.email || "",

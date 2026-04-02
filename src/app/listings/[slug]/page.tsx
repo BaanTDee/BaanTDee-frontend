@@ -115,7 +115,7 @@ export default function ListingDetailPage() {
     if (session?.user) {
       setInquiryName(session.user.name || "");
       setInquiryEmail(session.user.email || "");
-      const backendUser = (session as Record<string, unknown>).backendUser as
+      const backendUser = (session as unknown as Record<string, unknown>).backendUser as
         | { phone?: string }
         | undefined;
       if (backendUser?.phone) {
