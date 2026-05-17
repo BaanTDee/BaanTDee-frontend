@@ -15,6 +15,9 @@ import type {
   InquiryBody,
   Inquiry,
 } from "./types";
+import { mockGetListings, mockGetListingBySlug, mockGetFacilities } from "./mock-data";
+
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 // ==========================================
 // API Client for BaanTDee Backend
@@ -202,6 +205,7 @@ export async function getMe(): Promise<ApiResponse<User>> {
 export async function getListings(
   params: ListingsQuery = {}
 ): Promise<ApiPaginatedResponse<ListingSummary>> {
+  if (USE_MOCK) return mockGetListings(params);
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") {
@@ -215,6 +219,7 @@ export async function getListings(
 export async function getListingBySlug(
   slug: string
 ): Promise<ApiResponse<ListingDetailResponse>> {
+  if (USE_MOCK) return mockGetListingBySlug(slug);
   return apiFetch(`/listings/${slug}`);
 }
 
@@ -289,6 +294,7 @@ export async function setCoverImage(
 // ---------- Facilities API ----------
 
 export async function getFacilities(): Promise<ApiResponse<Facility[]>> {
+  if (USE_MOCK) return mockGetFacilities();
   return apiFetch("/facilities");
 }
 

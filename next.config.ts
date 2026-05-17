@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
   reactCompiler: true,
 
-  // Allow images from R2 / Cloudflare CDN and placeholder
+  // Allow images from R2 / Cloudflare CDN, picsum (mock), and placeholder
   images: {
     remotePatterns: [
       {
@@ -14,6 +13,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.cloudflare.com",
+      },
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
+      },
+      {
+        protocol: "https",
+        hostname: "fastly.picsum.photos",
       },
     ],
   },
