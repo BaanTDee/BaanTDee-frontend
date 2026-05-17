@@ -2,7 +2,7 @@
 
 > A real estate listing platform for buying and renting properties in Thailand — clean, fast, and easy to use.
 
-**Backend API:** [BaanTDee-backend →](https://github.com/BaanTDee/BaanTDee-backend)
+**Live Demo:** [baantdee-frontend.vercel.app](https://baantdee-frontend.vercel.app) · **Backend API:** [BaanTDee-backend →](https://github.com/BaanTDee/BaanTDee-backend)
 
 ---
 
