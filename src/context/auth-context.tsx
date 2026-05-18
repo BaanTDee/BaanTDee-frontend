@@ -23,7 +23,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   login: (body: LoginBody) => Promise<{ ok: boolean; error?: string }>;
-  register: (body: RegisterBody) => Promise<{ ok: boolean; error?: string }>;
+  register: (body: RegisterBody) => Promise<{ ok: boolean; error?: string; email?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -79,13 +79,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (body: RegisterBody): Promise<{ ok: boolean; error?: string }> => {
+    async (body: RegisterBody): Promise<{ ok: boolean; error?: string; email?: string }> => {
       try {
         const res = await apiRegister(body);
         if (res.success) {
-          setTokens(res.data.access_token, res.data.refresh_token);
-          setUser(res.data.user);
-          return { ok: true };
+          // Register now creates an unverified account and sends OTP — no tokens yet
+          return { ok: true, email: res.data.email };
         }
         return { ok: false, error: res.error.message };
       } catch {

@@ -153,11 +153,7 @@ export const authOptions: NextAuthOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              google_id: profile?.sub,
-              access_token: account.access_token,
-              name: user.name || "",
-              email: user.email || "",
-              avatar: user.image || null,
+              id_token: account.id_token,
             }),
           });
 

@@ -21,7 +21,6 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in
   if (status === "authenticated" && session) {
     router.replace("/");
     return null;
@@ -35,7 +34,6 @@ export default function RegisterPage() {
       setError("รหัสผ่านไม่ตรงกัน");
       return;
     }
-
     if (password.length < 8) {
       setError("รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร");
       return;
@@ -43,15 +41,11 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      // Register via backend
       const result = await backendRegister({ name, email, password, phone });
       if (result.success) {
-        // Auto login after registration
-        await signIn("credentials", {
-          email,
-          password,
-          callbackUrl: "/",
-        });
+        // Store password temporarily so verify-email page can auto-login after OTP
+        sessionStorage.setItem("_reg_pw", password);
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
         setError(result.error?.message || "สมัครสมาชิกไม่สำเร็จ");
       }
@@ -96,7 +90,6 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Email Register Form */}
         <form onSubmit={handleEmailRegister} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">ชื่อ</label>
@@ -173,7 +166,6 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -183,7 +175,6 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Facebook Register */}
         <Button
           type="button"
           onClick={handleFacebookRegister}
@@ -195,7 +186,6 @@ export default function RegisterPage() {
           สมัครด้วย Facebook
         </Button>
 
-        {/* Google Register */}
         <Button
           type="button"
           onClick={handleGoogleRegister}

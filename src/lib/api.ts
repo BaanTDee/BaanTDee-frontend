@@ -161,11 +161,40 @@ async function apiFetch<T>(
 
 // ---------- Auth API ----------
 
-export async function register(body: RegisterBody): Promise<ApiResponse<AuthResponse>> {
+export async function register(body: RegisterBody): Promise<ApiResponse<{ message: string; email: string }>> {
   return apiFetch("/auth/register", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export async function sendOtp(email: string): Promise<ApiResponse<{ message: string }>> {
+  return apiFetch("/auth/send-otp", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function verifyOtp(email: string, code: string): Promise<ApiResponse<AuthResponse>> {
+  return apiFetch("/auth/verify-otp", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export async function createCharge(body: {
+  plan: string;
+  method: "card" | "promptpay";
+  token: string;
+}): Promise<ApiResponse<{ chargeId: string; status: string; promptpayQr?: string; authorizeUri?: string }>> {
+  return apiFetch("/payments/charge", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }, true);
+}
+
+export async function getChargeStatus(chargeId: string): Promise<ApiResponse<{ status: string }>> {
+  return apiFetch(`/payments/status/${chargeId}`, {}, true);
 }
 
 export async function login(body: LoginBody): Promise<ApiResponse<AuthResponse>> {
