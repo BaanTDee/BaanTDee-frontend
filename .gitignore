@@ -44,3 +44,14 @@ next-env.d.ts
 # Editor & tools
 .claude/
 .vscode/
+
+.vercel
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# OMC
+.omc/
