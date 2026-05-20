@@ -229,6 +229,15 @@ export async function getMe(): Promise<ApiResponse<User>> {
   return apiFetch("/auth/me", {}, true);
 }
 
+export async function updateMe(body: {
+  name?: string;
+  phone?: string;
+  bio?: string;
+  avatar_url?: string;
+}): Promise<ApiResponse<User>> {
+  return apiFetch("/users/me", { method: "PATCH", body: JSON.stringify(body) }, true);
+}
+
 // ---------- Listings API ----------
 
 export async function getListings(

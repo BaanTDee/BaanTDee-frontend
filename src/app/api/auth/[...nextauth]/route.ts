@@ -179,7 +179,12 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session: sessionUpdate }) {
+      // session update trigger (e.g. profile edit)
+      if (trigger === "update" && sessionUpdate?.backendUser) {
+        token.backendUser = { ...(token.backendUser as object), ...sessionUpdate.backendUser };
+      }
+
       // เมื่อ login ครั้งแรก - เก็บข้อมูลจาก user
       if (user && account) {
         if (account.provider === "credentials") {

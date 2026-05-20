@@ -48,6 +48,8 @@ export interface User {
   phone: string;
   role: string;
   avatar: string | null;
+  avatar_url: string | null;
+  bio: string | null;
   created_at: string;
 }
 
