@@ -114,6 +114,21 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       {/* Profile Card */}
       <div className="mb-8 rounded-2xl border bg-white p-8 shadow-sm">
+        {/* Edit button — top right */}
+        {!editing && (
+          <div className="flex justify-end mb-4">
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-gray-600"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              แก้ไขโปรไฟล์
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-start gap-5">
           {/* Avatar */}
           <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-900">
@@ -181,13 +196,6 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-bold text-gray-900 truncate">{displayName}</h1>
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-                    title="แก้ไขโปรไฟล์"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
                 </div>
                 {displayEmail && (
                   <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
