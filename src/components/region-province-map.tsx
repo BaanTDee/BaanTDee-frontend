@@ -27,7 +27,7 @@ export default function RegionProvinceMap({
   const { imageFile, provinces } = regionData;
 
   return (
-    <div className="relative w-full select-none">
+    <div className="relative w-full select-none" style={{ filter: "drop-shadow(0px 4px 12px rgba(0,0,0,0.25))" }}>
       <Image
         src={imageFile}
         alt={`แผนที่ภาค ${regionId}`}
@@ -35,6 +35,7 @@ export default function RegionProvinceMap({
         height={2560}
         className="w-full h-auto pointer-events-none"
         priority
+        unoptimized
       />
       <svg
         viewBox="0 0 100 177.778"
@@ -46,11 +47,10 @@ export default function RegionProvinceMap({
 
           return (
             <g key={province.id}>
-              {/* Single polygon — transparent stroke extends hit area over red border */}
               <polygon
                 points={province.points}
                 fill="#ffffff"
-                fillOpacity={isHovered ? 0.4 : 0}
+                fillOpacity={isHovered ? 0.3 : 0}
                 stroke="transparent"
                 strokeWidth={2}
                 className="cursor-pointer transition-all duration-100"
