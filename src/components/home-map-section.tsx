@@ -24,6 +24,7 @@ export default function HomeMapSection() {
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedRegionName, setSelectedRegionName] = useState<string | null>(null);
   const [provinceSearch, setProvinceSearch] = useState("");
+  const [showLabels, setShowLabels] = useState(true);
 
   const handleSelectRegion = (regionId: string, regionName: string) => {
     setSelectedRegionId(regionId);
@@ -160,7 +161,28 @@ export default function HomeMapSection() {
         </div>
 
         {/* Map area */}
-        <div className="flex-1 min-w-0 p-3">
+        <div className="flex-1 min-w-0 p-3 relative">
+          {/* Toggle label button — shown only on province step */}
+          {step === "province" && hasProvinceMapData && (
+            <button
+              onClick={() => setShowLabels((v) => !v)}
+              title={showLabels ? "ซ่อนชื่อจังหวัด" : "แสดงชื่อจังหวัด"}
+              className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/95 text-slate-600 shadow border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors"
+            >
+              {showLabels ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              )}
+              {showLabels ? "ซ่อนชื่อ" : "แสดงชื่อ"}
+            </button>
+          )}
           {step === "region" ? (
             <div className="mx-auto w-full max-w-[460px]">
               <ThailandRegionMap onSelectRegion={handleSelectRegion} />
@@ -170,6 +192,7 @@ export default function HomeMapSection() {
               <RegionProvinceMap
                 regionId={selectedRegionId}
                 onSelectProvince={handleSelectProvinceFromMap}
+                showLabels={showLabels}
               />
             </div>
           ) : (

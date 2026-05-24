@@ -139,30 +139,38 @@ export default function ThailandRegionMap({ onSelectRegion }: ThailandRegionMapP
                 onClick={() => onSelectRegion?.(region.id, region.name)}
               />
               {/* Label on hover */}
-              {isHovered && (
-                <g pointerEvents="none">
-                  <rect
-                    x={region.labelX - 18}
-                    y={region.labelY - 5}
-                    width={36}
-                    height={9}
-                    rx={2}
-                    fill="white"
-                    fillOpacity={0.92}
-                  />
-                  <text
-                    x={region.labelX}
-                    y={region.labelY + 2.5}
-                    textAnchor="middle"
-                    fontSize={4.2}
-                    fontWeight={700}
-                    fill="#1e3a5f"
-                    className="select-none"
-                  >
-                    {region.name}
-                  </text>
-                </g>
-              )}
+              {isHovered && (() => {
+                const w = region.name.length * 2.6 + 5;
+                const h = 9;
+                return (
+                  <g pointerEvents="none">
+                    <rect
+                      x={region.labelX - w / 2}
+                      y={region.labelY - h / 2}
+                      width={w}
+                      height={h}
+                      rx={2}
+                      fill="white"
+                      fillOpacity={0.93}
+                      stroke={region.color}
+                      strokeWidth={0.35}
+                      strokeOpacity={0.5}
+                    />
+                    <text
+                      x={region.labelX}
+                      y={region.labelY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize={4.2}
+                      fontWeight={700}
+                      fill="#1e3a5f"
+                      className="select-none"
+                    >
+                      {region.name}
+                    </text>
+                  </g>
+                );
+              })()}
             </g>
           );
         })}

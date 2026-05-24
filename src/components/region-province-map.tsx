@@ -10,6 +10,7 @@ import {
 interface RegionProvinceMapProps {
   regionId: string;
   onSelectProvince: (provinceId: string, provinceName: string) => void;
+  showLabels?: boolean;
 }
 
 // Crowded central-region provinces shown as numbers on the map with a legend below
@@ -29,9 +30,9 @@ const CENTRAL_LEGEND = [
 export default function RegionProvinceMap({
   regionId,
   onSelectProvince,
+  showLabels = true,
 }: RegionProvinceMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [showLabels, setShowLabels] = useState(true);
 
   const regionData = REGION_PROVINCE_MAP[regionId];
 
@@ -44,27 +45,6 @@ export default function RegionProvinceMap({
 
   return (
     <div className="relative w-full select-none">
-      {/* Toggle label visibility */}
-      <button
-        onClick={() => setShowLabels((v) => !v)}
-        title={showLabels ? "ซ่อนชื่อจังหวัด" : "แสดงชื่อจังหวัด"}
-        className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/95 text-slate-600 shadow border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors"
-      >
-        {showLabels ? (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        ) : (
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
-            <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
-            <line x1="1" y1="1" x2="23" y2="23" />
-          </svg>
-        )}
-        {showLabels ? "ซ่อนชื่อ" : "แสดงชื่อ"}
-      </button>
-
       <div className="relative" style={{ filter: "drop-shadow(0px 4px 12px rgba(0,0,0,0.25))" }}>
         <Image
           src={imageFile}

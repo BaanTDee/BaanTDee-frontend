@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Script from "next/script";
 import Link from "next/link";
-import { Loader2, CheckCircle2, Crown, Zap, Building2, Phone, ChevronRight, Lock } from "lucide-react";
+import { Loader2, CheckCircle2, Crown, Zap, Building2, Phone, ChevronRight, Lock, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createCharge, getChargeStatus, type PaymentMethod } from "@/lib/api";
@@ -111,6 +111,14 @@ export default function UpgradePage() {
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
   const [showCardForm, setShowCardForm] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
+    "สแกน QR": false,
+    "Mobile Banking": true,
+    "Internet Banking": true,
+  });
+
+  const toggleGroup = (label: string) =>
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
 
   // QR / TrueMoney
   const [qrUrl, setQrUrl] = useState("");
@@ -355,10 +363,16 @@ export default function UpgradePage() {
                 <div className="space-y-4">
                   {METHOD_GROUPS.map((group) => (
                     <div key={group.label} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                      <p className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50/60">
-                        {group.label}
-                      </p>
-                      {group.methods.map((m, idx) => {
+                      <button
+                        onClick={() => toggleGroup(group.label)}
+                        className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-50/60 border-b border-gray-100 hover:bg-gray-100/60 transition-colors"
+                      >
+                        <span className="text-sm font-medium text-gray-600">{group.label}</span>
+                        <ChevronDown
+                          className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${collapsed[group.label] ? "" : "rotate-180"}`}
+                        />
+                      </button>
+                      {!collapsed[group.label] && group.methods.map((m, idx) => {
                         const active = selectedMethod?.id === m.id;
                         return (
                           <button
