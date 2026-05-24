@@ -37,12 +37,17 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative py-20" style={{ backgroundImage: "url('/hero-bg.jpg')", backgroundSize: "cover", backgroundPosition: "center" }}>
+    <section className="relative py-20 overflow-hidden">
+      {/* Blurred background — scale-110 hides blur edge artifacts */}
+      <div
+        className="absolute inset-0 scale-110"
+        style={{ backgroundImage: "url('/hero-bg.jpg')", backgroundSize: "cover", backgroundPosition: "center", filter: "blur(4px)" }}
+      />
       {/* Dark overlay so text stays readable */}
       <div className="absolute inset-0 bg-black/55" />
 
       <div className="relative mx-auto max-w-7xl px-4 text-center">
-        <h1 className="text-3xl font-bold text-white md:text-5xl leading-tight">
+        <h1 className="text-3xl font-bold text-white md:text-5xl leading-tight drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]">
           ซื้อ-ขาย อสังหาฯ ออนไลน์
           <br />
           <span className="text-blue-300">จบง่ายที่ บ้านที่ดี</span>

@@ -106,25 +106,42 @@ export default function RegionProvinceMap({
                 ? CENTRAL_LEGEND.findIndex((l) => l.id === province.id)
                 : -1;
               const label = legendIdx >= 0 ? `${legendIdx + 1}` : province.name;
+              const sharedProps = {
+                x: province.labelX,
+                y: province.labelY,
+                textAnchor: "middle" as const,
+                dominantBaseline: "central" as const,
+                fontSize: isHovered ? 6.5 : 4.5,
+                fontWeight: 700,
+                strokeLinejoin: "round" as const,
+                pointerEvents: "none" as const,
+                className: "select-none",
+              };
               return (
-                <text
-                  key={`label-${province.id}`}
-                  x={province.labelX}
-                  y={province.labelY}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fontSize={isHovered ? 6.5 : 4.5}
-                  fontWeight={700}
-                  stroke={isHovered ? "#2563EB" : "white"}
-                  strokeWidth={isHovered ? 2.8 : 2.2}
-                  strokeLinejoin="round"
-                  fill={isHovered ? "white" : "#1e3a5f"}
-                  paintOrder="stroke"
-                  pointerEvents="none"
-                  className="select-none"
-                >
-                  {label}
-                </text>
+                <g key={`label-${province.id}`}>
+                  {/* Outer stroke layer — hovered only */}
+                  {isHovered && (
+                    <text
+                      {...sharedProps}
+                      stroke="#ffffff"
+                      strokeWidth={3.8}
+                      fill="none"
+                      paintOrder="stroke"
+                    >
+                      {label}
+                    </text>
+                  )}
+                  {/* Inner stroke + fill layer */}
+                  <text
+                    {...sharedProps}
+                    stroke={isHovered ? "#083db1" : "white"}
+                    strokeWidth={isHovered ? 2.8 : 1}
+                    fill={isHovered ? "white" : "#1e3a5f"}
+                    paintOrder="stroke"
+                  >
+                    {label}
+                  </text>
+                </g>
               );
             })
           }

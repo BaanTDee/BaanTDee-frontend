@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft, LayoutGrid, Map, Search } from "lucide-react";
+import { ChevronRight, ChevronLeft, Search } from "lucide-react";
 import ThailandRegionMap from "@/components/thailand-region-map";
 import RegionProvinceMap from "@/components/region-province-map";
 import { regions, type Province } from "@/data/thailand-locations";
 import { REGION_PROVINCE_MAP, type ProvincePolygon } from "@/data/province-polygons";
 
 type Step = "region" | "province";
-type ProvinceView = "map" | "grid";
 
 const REGION_COLORS: Record<string, string> = {
   northern: "#3DB849",
@@ -24,14 +23,11 @@ export default function HomeMapSection() {
   const [step, setStep] = useState<Step>("region");
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedRegionName, setSelectedRegionName] = useState<string | null>(null);
-  const [provinceView, setProvinceView] = useState<ProvinceView>("map");
   const [provinceSearch, setProvinceSearch] = useState("");
 
   const handleSelectRegion = (regionId: string, regionName: string) => {
     setSelectedRegionId(regionId);
     setSelectedRegionName(regionName);
-    const hasMap = (REGION_PROVINCE_MAP[regionId]?.provinces?.length ?? 0) > 0;
-    setProvinceView(hasMap ? "map" : "grid");
     setStep("province");
   };
 
@@ -123,47 +119,16 @@ export default function HomeMapSection() {
             </>
           ) : (
             <>
-              {/* Back + toggle — horizontal row on mobile, stacked on desktop */}
-              <div className="flex flex-row items-center gap-2 lg:flex-col lg:items-stretch">
-                <button
-                  onClick={handleBack}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 flex-shrink-0 lg:w-full lg:mb-2"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  กลับ
-                </button>
+              <button
+                onClick={handleBack}
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-blue-600 transition hover:bg-blue-50 lg:w-full lg:mb-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                กลับ
+              </button>
 
-                {/* View toggle (map / grid) */}
-                {hasProvinceMapData && (
-                  <div className="flex rounded-lg border border-gray-200 overflow-hidden bg-white flex-1 lg:flex-none lg:mb-4">
-                    <button
-                      onClick={() => setProvinceView("map")}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${
-                        provinceView === "map"
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-500 hover:bg-gray-50"
-                      }`}
-                    >
-                      <Map className="h-4 w-4" />
-                      แผนที่
-                    </button>
-                    <button
-                      onClick={() => setProvinceView("grid")}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition ${
-                        provinceView === "grid"
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-500 hover:bg-gray-50"
-                      }`}
-                    >
-                      <LayoutGrid className="h-4 w-4" />
-                      รายการ
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Province list (grid view) — hidden on mobile unless grid view */}
-              {(provinceView === "grid" || !hasProvinceMapData) && (
+              {/* Province list */}
+              {(
                 <>
                   {/* Search box */}
                   <div className="relative mb-2 mt-2 lg:mt-0">
