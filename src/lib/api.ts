@@ -182,10 +182,26 @@ export async function verifyOtp(email: string, code: string): Promise<ApiRespons
   });
 }
 
+export type PaymentMethod =
+  | "card"
+  | "promptpay"
+  | "truemoney"
+  | "internet_banking_bay"
+  | "internet_banking_bbl"
+  | "internet_banking_ktb"
+  | "internet_banking_scb"
+  | "mobile_banking_bay"
+  | "mobile_banking_kbank"
+  | "mobile_banking_ktb"
+  | "mobile_banking_scb";
+
 export async function createCharge(body: {
   plan: string;
-  method: "card" | "promptpay";
-  token: string;
+  method: PaymentMethod;
+  token?: string;
+  phone_number?: string;
+  return_uri?: string;
+  listing_id?: number;
 }): Promise<ApiResponse<{ chargeId: string; status: string; promptpayQr?: string; authorizeUri?: string }>> {
   return apiFetch("/payments/charge", {
     method: "POST",
@@ -293,6 +309,15 @@ export async function deleteListing(id: number): Promise<ApiResponse<{ message: 
 }
 
 // ---------- Images API ----------
+
+export async function uploadImageFile(
+  file: File,
+  token?: string
+): Promise<ApiResponse<{ url: string; key: string }>> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch("/upload/image", { method: "POST", body: form }, true, true, token);
+}
 
 export async function uploadImage(
   listingId: number,

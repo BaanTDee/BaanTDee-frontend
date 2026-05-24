@@ -6,7 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import {
   Loader2, User, Mail, Phone, LogOut, Plus, Home,
-  Heart, ChevronRight, Pencil, X, Check, FileText,
+  Heart, ChevronRight, Pencil, X, Check, FileText, Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +110,17 @@ export default function ProfilePage() {
   const displayBio = backendUser?.bio || "";
   const avatar = backendUser?.avatar_url || backendUser?.avatar || session.user.image || null;
 
+  const tierLabel: Record<string, { label: string; className: string }> = {
+    free:       { label: "Free",       className: "bg-gray-100 text-gray-600" },
+    standard:   { label: "Standard",   className: "bg-blue-100 text-blue-700" },
+    premium:    { label: "Standard",   className: "bg-blue-100 text-blue-700" },
+    pro:        { label: "Pro",        className: "bg-blue-900 text-white" },
+    agency:     { label: "Agency",     className: "bg-purple-100 text-purple-700" },
+    enterprise: { label: "Enterprise", className: "bg-yellow-100 text-yellow-800" },
+  };
+  const tier = backendUser?.tier ?? "free";
+  const tierInfo = tierLabel[tier] ?? tierLabel.free;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       {/* Profile Card */}
@@ -180,7 +191,13 @@ export default function ProfilePage() {
             ) : (
               <div>
                 <div className="flex items-center justify-between gap-2">
-                  <h1 className="text-xl font-bold text-gray-900 truncate">{displayName}</h1>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h1 className="text-xl font-bold text-gray-900 truncate">{displayName}</h1>
+                    <span className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${tierInfo.className}`}>
+                      {tier !== "free" && <Crown className="h-3 w-3" />}
+                      {tierInfo.label}
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
