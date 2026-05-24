@@ -5,10 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Script from "next/script";
 import Link from "next/link";
-import {
-  Loader2, CreditCard, QrCode, CheckCircle2, Crown,
-  Zap, Building2, Phone, Smartphone, Globe, ChevronLeft,
-} from "lucide-react";
+import { Loader2, CheckCircle2, Crown, Zap, Building2, Phone, ChevronRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createCharge, getChargeStatus, type PaymentMethod } from "@/lib/api";
@@ -17,69 +14,85 @@ declare global {
   interface Window {
     Omise: {
       setPublicKey: (key: string) => void;
-      createToken: (
-        type: string,
-        data: Record<string, unknown>,
-        callback: (statusCode: number, response: { id?: string; code?: string; message?: string }) => void
-      ) => void;
+      createToken: (type: string, data: Record<string, unknown>, cb: (code: number, res: { id?: string; message?: string }) => void) => void;
     };
   }
 }
 
 type PlanKey = "standard_monthly" | "pro_monthly" | "agency_monthly";
-type Step = "select" | "method" | "card" | "qr" | "phone" | "redirecting" | "success" | "failed";
+type Step = "select" | "checkout" | "qr" | "redirecting" | "success" | "failed";
 
 const PLANS = [
   {
     key: "standard_monthly" as PlanKey,
     name: "Standard",
     price: 199,
-    selBorder: "border-blue-500 bg-blue-50",
-    badge: "bg-blue-100 text-blue-700",
-    icon: <Zap className="h-5 w-5 text-blue-500" />,
-    features: ["ลงประกาศได้ 12 รายการ", "รูปได้สูงสุด 10 รูป/ประกาศ", "ความละเอียด 1080p", "1 บัญชีผู้ใช้"],
+    icon: <Zap className="h-4 w-4" />,
+    color: "#2563eb",
+    features: ["12 ประกาศ", "10 รูป/ประกาศ", "1080p"],
   },
   {
     key: "pro_monthly" as PlanKey,
     name: "Pro",
     price: 499,
-    selBorder: "border-blue-900 bg-blue-50",
-    badge: "bg-blue-900 text-white",
-    icon: <Crown className="h-5 w-5 text-yellow-500" />,
-    features: ["ลงประกาศได้ 30 รายการ", "รูปได้สูงสุด 15 รูป/ประกาศ", "ความละเอียด 2K", "1 บัญชีผู้ใช้"],
-    recommended: true,
+    icon: <Crown className="h-4 w-4" />,
+    color: "#1e3a8a",
+    badge: "แนะนำ",
+    features: ["30 ประกาศ", "15 รูป/ประกาศ", "2K"],
   },
   {
     key: "agency_monthly" as PlanKey,
     name: "Agency",
     price: 1299,
-    selBorder: "border-purple-500 bg-purple-50",
-    badge: "bg-purple-100 text-purple-700",
-    icon: <Building2 className="h-5 w-5 text-purple-500" />,
-    features: ["ลงประกาศได้ 200 รายการ", "รูปได้สูงสุด 20 รูป/ประกาศ", "ความละเอียด 4K", "สูงสุด 5 บัญชีในทีม"],
+    icon: <Building2 className="h-4 w-4" />,
+    color: "#7c3aed",
+    features: ["200 ประกาศ", "20 รูป/ประกาศ", "4K + ทีม 5 คน"],
   },
 ];
 
-interface MethodOption {
+// ── Bank brand data ───────────────────────────────────────────────────────────
+
+interface MethodDef {
   id: PaymentMethod;
-  label: string;
-  sublabel: string;
-  icon: React.ReactNode;
+  name: string;
+  note?: string;
+  color: string;
+  abbr: string;
   flow: "card" | "qr" | "phone" | "redirect";
 }
 
-const METHODS: MethodOption[] = [
-  { id: "card",                  label: "บัตรเครดิต / เดบิต",       sublabel: "Visa · Mastercard · JCB",     icon: <CreditCard className="h-5 w-5 text-blue-600" />,   flow: "card" },
-  { id: "promptpay",             label: "พร้อมเพย์",                sublabel: "สแกน QR ผ่านแอปธนาคาร",      icon: <QrCode className="h-5 w-5 text-green-600" />,       flow: "qr" },
-  { id: "truemoney",             label: "TrueMoney Wallet",          sublabel: "กรอกเบอร์แล้วสแกน QR",       icon: <span className="font-bold text-red-500">T</span>,   flow: "phone" },
-  { id: "mobile_banking_kbank",  label: "K PLUS (กสิกรไทย)",        sublabel: "Mobile Banking",               icon: <Smartphone className="h-5 w-5 text-green-700" />,  flow: "redirect" },
-  { id: "mobile_banking_scb",    label: "SCB Easy",                  sublabel: "Mobile Banking",               icon: <Smartphone className="h-5 w-5 text-purple-700" />, flow: "redirect" },
-  { id: "mobile_banking_ktb",    label: "Krungthai NEXT",            sublabel: "Mobile Banking",               icon: <Smartphone className="h-5 w-5 text-sky-600" />,    flow: "redirect" },
-  { id: "mobile_banking_bay",    label: "KMA (กรุงศรี)",             sublabel: "Mobile Banking",               icon: <Smartphone className="h-5 w-5 text-yellow-600" />, flow: "redirect" },
-  { id: "internet_banking_bbl",  label: "Bualuang mBanking (BBL)",   sublabel: "Internet Banking",             icon: <Globe className="h-5 w-5 text-blue-800" />,        flow: "redirect" },
-  { id: "internet_banking_scb",  label: "SCB Internet Banking",      sublabel: "Internet Banking",             icon: <Globe className="h-5 w-5 text-purple-700" />,      flow: "redirect" },
-  { id: "internet_banking_ktb",  label: "Krungthai Internet Banking", sublabel: "Internet Banking",            icon: <Globe className="h-5 w-5 text-sky-600" />,         flow: "redirect" },
-  { id: "internet_banking_bay",  label: "Krungsri Internet Banking",  sublabel: "Internet Banking",            icon: <Globe className="h-5 w-5 text-yellow-600" />,      flow: "redirect" },
+const METHOD_GROUPS: { label: string; methods: MethodDef[] }[] = [
+  {
+    label: "บัตรเครดิต / เดบิต",
+    methods: [
+      { id: "card", name: "Visa / Mastercard / JCB", note: "ทุกธนาคาร", color: "#1a56db", abbr: "CARD", flow: "card" },
+    ],
+  },
+  {
+    label: "สแกน QR",
+    methods: [
+      { id: "promptpay", name: "พร้อมเพย์", note: "สแกนด้วยแอปธนาคารใดก็ได้", color: "#003f87", abbr: "PP", flow: "qr" },
+      { id: "truemoney", name: "TrueMoney Wallet", note: "กรอกเบอร์แล้วสแกน QR", color: "#e4202a", abbr: "TM", flow: "phone" },
+    ],
+  },
+  {
+    label: "Mobile Banking",
+    methods: [
+      { id: "mobile_banking_kbank", name: "K PLUS",          note: "กสิกรไทย",  color: "#138f2d", abbr: "K",   flow: "redirect" },
+      { id: "mobile_banking_scb",   name: "SCB Easy",        note: "ไทยพาณิชย์", color: "#4e2d84", abbr: "SCB", flow: "redirect" },
+      { id: "mobile_banking_ktb",   name: "Krungthai NEXT",  note: "กรุงไทย",    color: "#00adef", abbr: "KTB", flow: "redirect" },
+      { id: "mobile_banking_bay",   name: "KMA",             note: "กรุงศรี",    color: "#e8a020", abbr: "KMA", flow: "redirect" },
+    ],
+  },
+  {
+    label: "Internet Banking",
+    methods: [
+      { id: "internet_banking_bbl", name: "Bualuang iBanking", note: "กรุงเทพ",   color: "#1b3f8b", abbr: "BBL", flow: "redirect" },
+      { id: "internet_banking_scb", name: "SCB",               note: "ไทยพาณิชย์", color: "#4e2d84", abbr: "SCB", flow: "redirect" },
+      { id: "internet_banking_ktb", name: "Krungthai",         note: "กรุงไทย",    color: "#00adef", abbr: "KTB", flow: "redirect" },
+      { id: "internet_banking_bay", name: "Krungsri",          note: "กรุงศรี",    color: "#e8a020", abbr: "KSI", flow: "redirect" },
+    ],
+  },
 ];
 
 export default function UpgradePage() {
@@ -87,23 +100,22 @@ export default function UpgradePage() {
   const { status } = useSession();
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("pro_monthly");
-  const [selectedMethod, setSelectedMethod] = useState<MethodOption | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<MethodDef | null>(null);
   const [step, setStep] = useState<Step>("select");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Card form
+  // Card
   const [cardNumber, setCardNumber] = useState("");
   const [cardName, setCardName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
+  const [showCardForm, setShowCardForm] = useState(false);
 
-  // QR polling
+  // QR / TrueMoney
   const [qrUrl, setQrUrl] = useState("");
   const [chargeId, setChargeId] = useState("");
   const [polling, setPolling] = useState(false);
-
-  // TrueMoney
   const [phone, setPhone] = useState("");
 
   useEffect(() => {
@@ -116,9 +128,7 @@ export default function UpgradePage() {
       const res = await getChargeStatus(chargeId);
       if (res.success && res.data.status === "successful") { setPolling(false); setStep("success"); }
       else if (res.success && (res.data.status === "failed" || res.data.status === "expired")) {
-        setPolling(false);
-        setError("การชำระเงินไม่สำเร็จ กรุณาลองใหม่");
-        setStep("failed");
+        setPolling(false); setError("การชำระเงินไม่สำเร็จ"); setStep("failed");
       }
     }, 3000);
     return () => clearInterval(id);
@@ -128,53 +138,47 @@ export default function UpgradePage() {
 
   const reset = () => {
     setStep("select"); setError(""); setSelectedMethod(null);
-    setQrUrl(""); setChargeId(""); setPolling(false);
+    setQrUrl(""); setChargeId(""); setPolling(false); setShowCardForm(false);
     setCardNumber(""); setCardName(""); setExpiry(""); setCvv(""); setPhone("");
   };
 
-  const doCharge = async (method: PaymentMethod, token?: string, phoneNumber?: string) => {
-    setError("");
-    setLoading(true);
+  const doCharge = async (method: PaymentMethod, token?: string, phoneNum?: string) => {
+    setError(""); setLoading(true);
     try {
-      const returnUri = `${window.location.origin}/payment/return`;
-      const result = await createCharge({ plan: selectedPlan, method, token, phone_number: phoneNumber, return_uri: returnUri });
-      if (!result.success) {
-        setError((result as any).error?.message || "การชำระเงินไม่สำเร็จ");
-        setStep("failed");
-        return;
-      }
-      const { status: cs, chargeId: cid, promptpayQr, authorizeUri } = result.data;
+      const res = await createCharge({
+        plan: selectedPlan, method, token, phone_number: phoneNum,
+        return_uri: `${window.location.origin}/payment/return`,
+      });
+      if (!res.success) { setError((res as any).error?.message || "ชำระเงินไม่สำเร็จ"); setStep("failed"); return; }
+      const { status: cs, chargeId: cid, promptpayQr, authorizeUri } = res.data;
       if (cs === "successful") { setStep("success"); return; }
       if (authorizeUri) { setStep("redirecting"); setTimeout(() => { window.location.href = authorizeUri; }, 800); return; }
       if (promptpayQr) { setChargeId(cid); setQrUrl(promptpayQr); setStep("qr"); setPolling(true); return; }
-      setError("ไม่สามารถดำเนินการชำระเงินได้"); setStep("failed");
-    } catch {
-      setError("เกิดข้อผิดพลาด กรุณาลองใหม่"); setStep("failed");
-    } finally {
-      setLoading(false);
-    }
+      setError("ไม่สามารถดำเนินการได้"); setStep("failed");
+    } catch { setError("เกิดข้อผิดพลาด"); setStep("failed"); }
+    finally { setLoading(false); }
   };
 
-  const handleMethodProceed = async () => {
+  const handleProceed = async () => {
     if (!selectedMethod) return;
-    if (selectedMethod.flow === "card") { setStep("card"); return; }
-    if (selectedMethod.flow === "phone") { setStep("phone"); return; }
+    if (selectedMethod.flow === "card") { setShowCardForm(true); return; }
+    if (selectedMethod.flow === "phone") return; // handled inline
     await doCharge(selectedMethod.id);
   };
 
   const handleCardPay = () => {
-    if (!cardNumber || !cardName || !expiry || !cvv) { setError("กรุณากรอกข้อมูลบัตรให้ครบ"); return; }
-    const [m, y] = expiry.split("/").map((s) => s.trim());
+    if (!cardNumber || !cardName || !expiry || !cvv) { setError("กรุณากรอกข้อมูลให้ครบ"); return; }
+    const [m, y] = expiry.split("/");
     setLoading(true);
     window.Omise.setPublicKey(process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY || "");
-    window.Omise.createToken(
-      "card",
-      { name: cardName, number: cardNumber.replace(/\s/g, ""), expiration_month: parseInt(m), expiration_year: parseInt("20" + y), security_code: cvv },
-      async (statusCode, response) => {
-        if (statusCode !== 200 || !response.id) { setError(response.message || "ข้อมูลบัตรไม่ถูกต้อง"); setLoading(false); return; }
-        await doCharge("card", response.id);
-      }
-    );
+    window.Omise.createToken("card", {
+      name: cardName, number: cardNumber.replace(/\s/g, ""),
+      expiration_month: parseInt(m), expiration_year: parseInt("20" + y?.trim()),
+      security_code: cvv,
+    }, async (code, res) => {
+      if (code !== 200 || !res.id) { setError(res.message || "ข้อมูลบัตรไม่ถูกต้อง"); setLoading(false); return; }
+      await doCharge("card", res.id);
+    });
   };
 
   const handleTrueMoneyPay = async () => {
@@ -183,225 +187,324 @@ export default function UpgradePage() {
     await doCharge("truemoney", undefined, d.startsWith("0") ? "+66" + d.slice(1) : d);
   };
 
-  if (status === "loading") {
-    return <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-900" /></div>;
-  }
+  if (status === "loading") return (
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
+    </div>
+  );
+
+  // ── Terminal screens ──────────────────────────────────────────────────────
+
+  if (step === "success") return (
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
+      <div className="text-center space-y-5 max-w-sm w-full">
+        <div className="mx-auto w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
+          <CheckCircle2 className="h-8 w-8 text-green-500" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">ชำระเงินสำเร็จ</h1>
+          <p className="mt-1 text-sm text-gray-500">แพ็กเกจ {plan.name} เริ่มต้นแล้ว 30 วัน</p>
+        </div>
+        <Button className="w-full bg-blue-900 hover:bg-blue-800 h-11" onClick={() => router.push("/profile")}>
+          ดูโปรไฟล์
+        </Button>
+      </div>
+    </div>
+  );
+
+  if (step === "failed") return (
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
+      <div className="text-center space-y-5 max-w-sm w-full">
+        <div className="mx-auto w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+          <span className="text-2xl text-red-400">✕</span>
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">ชำระเงินไม่สำเร็จ</h1>
+          {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="flex-1 h-11" onClick={() => router.push("/")}>หน้าหลัก</Button>
+          <Button className="flex-1 h-11 bg-blue-900 hover:bg-blue-800" onClick={reset}>ลองใหม่</Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (step === "redirecting") return (
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
+      <div className="text-center space-y-4">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-900 mx-auto" />
+        <p className="text-gray-600">กำลังนำไปยังหน้าธนาคาร...</p>
+      </div>
+    </div>
+  );
+
+  if (step === "qr") return (
+    <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
+      <div className="text-center space-y-6 max-w-xs w-full">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">สแกนเพื่อชำระเงิน</h2>
+          <p className="mt-1 text-sm text-gray-500">{plan.name} ฿{plan.price.toLocaleString()}</p>
+        </div>
+        {qrUrl
+          ? <img src={qrUrl} alt="QR" className="mx-auto w-52 h-52 rounded-xl border border-gray-200" /> // eslint-disable-line @next/next/no-img-element
+          : <div className="mx-auto w-52 h-52 rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+        }
+        <p className="text-xs text-gray-400 flex items-center justify-center gap-1.5">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />รอยืนยันจากธนาคาร...
+        </p>
+        <button onClick={() => { setPolling(false); reset(); }} className="text-sm text-gray-400 hover:text-gray-600 underline">ยกเลิก</button>
+      </div>
+    </div>
+  );
+
+  // ── Plan selection ────────────────────────────────────────────────────────
+
+  if (step === "select") return (
+    <>
+      <Script src="https://cdn.omise.co/omise.js" strategy="lazyOnload" />
+      <div className="min-h-[calc(100vh-10rem)] bg-gray-50 px-4 py-12">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-10 text-center">
+            <h1 className="text-2xl font-semibold text-gray-900">เลือกแพ็กเกจ</h1>
+            <p className="mt-1.5 text-sm text-gray-500">ยกระดับการลงประกาศของคุณ เริ่มต้นได้เลยวันนี้</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {PLANS.map((p) => {
+              const active = selectedPlan === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setSelectedPlan(p.key)}
+                  className={`relative rounded-2xl border-2 p-5 text-left transition-all duration-150 ${active ? "border-blue-900 bg-white shadow-md" : "border-gray-200 bg-white hover:border-gray-300"}`}
+                >
+                  {p.badge && (
+                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full text-[11px] font-semibold px-3 py-0.5 text-white" style={{ background: p.color }}>
+                      {p.badge}
+                    </span>
+                  )}
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ background: p.color }}>
+                      {p.icon}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-xl font-bold text-gray-900">฿{p.price.toLocaleString()}</span>
+                      <span className="text-xs text-gray-400 ml-1">/เดือน</span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mb-2">{p.name}</p>
+                  <ul className="space-y-1">
+                    {p.features.map((f) => (
+                      <li key={f} className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className="h-1.5 w-1.5 rounded-full bg-gray-300 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  {active && <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-blue-900 flex items-center justify-center"><CheckCircle2 className="h-3.5 w-3.5 text-white" /></div>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 flex items-center justify-between gap-4 mb-8">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Enterprise</p>
+              <p className="text-xs text-gray-400 mt-0.5">ไม่จำกัดประกาศ · ทีม 10 คน · 4K · ราคาตามสัญญา</p>
+            </div>
+            <Link href="/contact">
+              <button className="shrink-0 flex items-center gap-1.5 text-sm text-blue-900 hover:underline font-medium">
+                <Phone className="h-3.5 w-3.5" />ติดต่อเรา<ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </Link>
+          </div>
+
+          <Button className="w-full h-12 bg-blue-900 hover:bg-blue-800 text-sm font-medium rounded-xl" onClick={() => setStep("checkout")}>
+            ถัดไป — ชำระ ฿{plan.price.toLocaleString()} ({plan.name})
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
+  // ── Checkout ──────────────────────────────────────────────────────────────
 
   return (
     <>
       <Script src="https://cdn.omise.co/omise.js" strategy="lazyOnload" />
-      <div className="min-h-[calc(100vh-10rem)] px-4 py-10">
+      <div className="min-h-[calc(100vh-10rem)] bg-gray-50 px-4 py-10">
         <div className="mx-auto max-w-4xl">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
 
-          {/* SUCCESS */}
-          {step === "success" && (
-            <div className="text-center space-y-4 max-w-md mx-auto">
-              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
-              <h1 className="text-2xl font-bold text-gray-900">อัปเกรดสำเร็จ!</h1>
-              <p className="text-muted-foreground">แพ็กเกจ {plan.name} เริ่มต้นแล้ว 30 วัน</p>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800" onClick={() => router.push("/profile")}>ดูโปรไฟล์</Button>
-            </div>
-          )}
-
-          {/* FAILED */}
-          {step === "failed" && (
-            <div className="text-center space-y-4 max-w-md mx-auto">
-              <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mx-auto text-3xl text-red-500">✕</div>
-              <h1 className="text-2xl font-bold text-gray-900">การชำระเงินไม่สำเร็จ</h1>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button className="w-full bg-blue-900 hover:bg-blue-800" onClick={reset}>ลองใหม่</Button>
-            </div>
-          )}
-
-          {/* REDIRECTING */}
-          {step === "redirecting" && (
-            <div className="text-center space-y-4 max-w-md mx-auto">
-              <Loader2 className="h-12 w-12 animate-spin text-blue-900 mx-auto" />
-              <h1 className="text-xl font-bold text-gray-900">กำลังนำไปยังหน้าธนาคาร...</h1>
-              <p className="text-sm text-muted-foreground">หากไม่ถูก redirect อัตโนมัติ กรุณารอสักครู่</p>
-            </div>
-          )}
-
-          {/* PLAN SELECTION */}
-          {step === "select" && (
-            <div className="space-y-8">
-              <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900">เลือกแพ็กเกจ</h1>
-                <p className="mt-2 text-muted-foreground">ยกระดับการลงประกาศอสังหาริมทรัพย์ของคุณ</p>
+            {/* ── Left: payment methods ───────────────────── */}
+            <div className="lg:col-span-3 space-y-3">
+              <div className="flex items-center gap-3 mb-1">
+                <button onClick={() => { setStep("select"); setShowCardForm(false); setError(""); }} className="text-gray-400 hover:text-gray-700 transition-colors">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 className="text-base font-semibold text-gray-900">วิธีชำระเงิน</h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {PLANS.map((p) => (
-                  <button
-                    key={p.key}
-                    onClick={() => setSelectedPlan(p.key)}
-                    className={`relative rounded-xl border-2 p-5 text-left transition-all ${selectedPlan === p.key ? p.selBorder + " shadow-md" : "border-gray-200 hover:border-gray-300 bg-white"}`}
-                  >
-                    {p.recommended && (
-                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-900 px-3 py-0.5 text-xs font-semibold text-white">แนะนำ</span>
-                    )}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        {p.icon}
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${p.badge}`}>{p.name}</span>
-                      </div>
-                      <span className="text-xl font-bold text-gray-900">฿{p.price.toLocaleString()}</span>
+
+              {error && !showCardForm && (
+                <div className="rounded-lg bg-red-50 border border-red-100 px-3.5 py-2.5 text-sm text-red-600">{error}</div>
+              )}
+
+              {/* Method groups */}
+              {!showCardForm && (
+                <div className="space-y-4">
+                  {METHOD_GROUPS.map((group) => (
+                    <div key={group.label} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <p className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50/60">
+                        {group.label}
+                      </p>
+                      {group.methods.map((m, idx) => {
+                        const active = selectedMethod?.id === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => { setSelectedMethod(m); setError(""); }}
+                            className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors ${active ? "bg-blue-50" : "hover:bg-gray-50"} ${idx > 0 ? "border-t border-gray-100" : ""}`}
+                          >
+                            {/* Brand color dot / abbr */}
+                            <span
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white text-[11px] font-bold"
+                              style={{ background: m.color }}
+                            >
+                              {m.abbr}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 leading-tight">{m.name}</p>
+                              {m.note && <p className="text-xs text-gray-400 mt-0.5">{m.note}</p>}
+                            </div>
+                            <span className={`h-4.5 w-4.5 flex items-center justify-center rounded-full border-2 transition-colors shrink-0 ${active ? "border-blue-900 bg-blue-900" : "border-gray-300"}`}>
+                              {active && <span className="block h-1.5 w-1.5 rounded-full bg-white" />}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-muted-foreground mb-3">ต่อเดือน</p>
-                    <ul className="space-y-1.5">
-                      {p.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />{f}
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
-                ))}
-              </div>
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div>
-                  <p className="font-semibold text-gray-900">Enterprise — สำหรับธุรกิจขนาดใหญ่</p>
-                  <p className="text-sm text-muted-foreground mt-0.5">ลงประกาศไม่จำกัด · 10 บัญชีทีม · ความละเอียด 4K · ราคาพิเศษตามสัญญา</p>
-                </div>
-                <Link href="/contact"><Button variant="outline" className="shrink-0 gap-2"><Phone className="h-4 w-4" />ติดต่อเรา</Button></Link>
-              </div>
-              <div className="max-w-sm mx-auto">
-                <Button className="w-full bg-blue-900 hover:bg-blue-800 text-base py-6" onClick={() => setStep("method")}>
-                  ถัดไป — เลือกวิธีชำระเงิน
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* METHOD SELECTION */}
-          {step === "method" && (
-            <div className="max-w-xl mx-auto space-y-4">
-              <div className="flex items-center gap-3">
-                <button onClick={() => setStep("select")} className="text-muted-foreground hover:text-gray-900"><ChevronLeft className="h-5 w-5" /></button>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">เลือกวิธีชำระเงิน</h2>
-                  <p className="text-sm text-muted-foreground">{plan.name} — ฿{plan.price.toLocaleString()}/เดือน</p>
-                </div>
-              </div>
-              {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-              <div className="space-y-2">
-                {METHODS.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedMethod(m)}
-                    className={`w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all ${selectedMethod?.id === m.id ? "border-blue-900 bg-blue-50" : "border-gray-200 hover:border-gray-300 bg-white"}`}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 shrink-0">{m.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">{m.label}</p>
-                      <p className="text-xs text-muted-foreground">{m.sublabel}</p>
-                    </div>
-                    {selectedMethod?.id === m.id && <CheckCircle2 className="h-5 w-5 text-blue-900 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-              <Button
-                className="w-full bg-blue-900 hover:bg-blue-800"
-                disabled={!selectedMethod || loading}
-                onClick={handleMethodProceed}
-              >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {selectedMethod ? `ชำระ ฿${plan.price.toLocaleString()} ด้วย ${selectedMethod.label}` : "เลือกวิธีชำระเงิน"}
-              </Button>
-            </div>
-          )}
-
-          {/* CARD FORM */}
-          {step === "card" && (
-            <div className="max-w-md mx-auto space-y-6">
-              <div className="flex items-center gap-3">
-                <button onClick={() => { setStep("method"); setError(""); }} className="text-muted-foreground hover:text-gray-900"><ChevronLeft className="h-5 w-5" /></button>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">กรอกข้อมูลบัตร</h2>
-                  <p className="text-sm text-muted-foreground">{plan.name} — ฿{plan.price.toLocaleString()}/เดือน</p>
-                </div>
-              </div>
-              {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">หมายเลขบัตร</label>
-                  <Input
-                    placeholder="0000 0000 0000 0000"
-                    value={cardNumber}
-                    onChange={(e) => { const v = e.target.value.replace(/\D/g, "").slice(0, 16); setCardNumber(v.replace(/(.{4})/g, "$1 ").trim()); }}
-                    maxLength={19}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">ชื่อบนบัตร</label>
-                  <Input placeholder="FIRSTNAME LASTNAME" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">วันหมดอายุ</label>
-                    <Input
-                      placeholder="MM/YY" value={expiry} maxLength={5}
-                      onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 4); if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2); setExpiry(v); }}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">CVV</label>
-                    <Input placeholder="123" type="password" maxLength={4} value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))} />
-                  </div>
-                </div>
-              </div>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800" onClick={handleCardPay} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                ชำระเงิน ฿{plan.price.toLocaleString()}
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">ข้อมูลบัตรถูกเข้ารหัสด้วย Omise (PCI-DSS) — ไม่มีการเก็บข้อมูลบัตรในระบบของเรา</p>
-            </div>
-          )}
-
-          {/* TRUEMONEY PHONE */}
-          {step === "phone" && (
-            <div className="max-w-md mx-auto space-y-6">
-              <div className="flex items-center gap-3">
-                <button onClick={() => { setStep("method"); setError(""); }} className="text-muted-foreground hover:text-gray-900"><ChevronLeft className="h-5 w-5" /></button>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">TrueMoney Wallet</h2>
-                  <p className="text-sm text-muted-foreground">{plan.name} — ฿{plan.price.toLocaleString()}/เดือน</p>
-                </div>
-              </div>
-              {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">เบอร์โทรที่ผูกกับ TrueMoney</label>
-                <Input placeholder="0812345678" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} maxLength={10} />
-                <p className="mt-1 text-xs text-muted-foreground">ระบบจะส่ง QR code ให้สแกนผ่านแอป TrueMoney</p>
-              </div>
-              <Button className="w-full bg-blue-900 hover:bg-blue-800" onClick={handleTrueMoneyPay} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                ชำระเงิน ฿{plan.price.toLocaleString()}
-              </Button>
-            </div>
-          )}
-
-          {/* QR CODE */}
-          {step === "qr" && (
-            <div className="max-w-md mx-auto text-center space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">สแกน QR เพื่อชำระเงิน</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{plan.name} — ฿{plan.price.toLocaleString()}</p>
-              </div>
-              {qrUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrUrl} alt="QR Code" className="mx-auto w-56 h-56 rounded-lg border" />
-              ) : (
-                <div className="w-56 h-56 mx-auto rounded-lg border bg-gray-50 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
+                  ))}
                 </div>
               )}
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />รอการยืนยันการชำระเงิน...
-              </div>
-              <Button variant="ghost" className="w-full" onClick={() => { setPolling(false); reset(); }}>ยกเลิก</Button>
-            </div>
-          )}
 
+              {/* TrueMoney phone inline */}
+              {!showCardForm && selectedMethod?.flow === "phone" && (
+                <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+                  <p className="text-sm font-medium text-gray-700">เบอร์โทรที่ผูกกับ TrueMoney Wallet</p>
+                  <Input
+                    placeholder="0812345678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    className="h-11"
+                  />
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  <Button className="w-full h-11 bg-blue-900 hover:bg-blue-800 rounded-lg text-sm" disabled={loading} onClick={handleTrueMoneyPay}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    ชำระ ฿{plan.price.toLocaleString()}
+                  </Button>
+                </div>
+              )}
+
+              {/* Card form inline */}
+              {showCardForm && (
+                <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-gray-900">ข้อมูลบัตร</p>
+                    <button onClick={() => { setShowCardForm(false); setError(""); }} className="text-xs text-gray-400 hover:text-gray-600">เปลี่ยนวิธี</button>
+                  </div>
+                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">หมายเลขบัตร</label>
+                      <Input
+                        placeholder="0000 0000 0000 0000"
+                        value={cardNumber}
+                        onChange={(e) => { const v = e.target.value.replace(/\D/g, "").slice(0, 16); setCardNumber(v.replace(/(.{4})/g, "$1 ").trim()); }}
+                        maxLength={19} className="h-11 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อบนบัตร</label>
+                      <Input placeholder="FIRSTNAME LASTNAME" value={cardName} onChange={(e) => setCardName(e.target.value.toUpperCase())} className="h-11" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">วันหมดอายุ</label>
+                        <Input placeholder="MM/YY" value={expiry} maxLength={5} className="h-11"
+                          onChange={(e) => { let v = e.target.value.replace(/\D/g, "").slice(0, 4); if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2); setExpiry(v); }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">CVV</label>
+                        <Input placeholder="•••" type="password" maxLength={4} value={cvv} onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))} className="h-11" />
+                      </div>
+                    </div>
+                  </div>
+                  <Button className="w-full h-11 bg-blue-900 hover:bg-blue-800 rounded-lg text-sm" onClick={handleCardPay} disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    ชำระเงิน ฿{plan.price.toLocaleString()}
+                  </Button>
+                  <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+                    <Lock className="h-3 w-3" />ข้อมูลบัตรเข้ารหัสโดย Omise · PCI-DSS Level 1
+                  </p>
+                </div>
+              )}
+
+              {/* Proceed button */}
+              {!showCardForm && selectedMethod && selectedMethod.flow !== "phone" && (
+                <Button
+                  className="w-full h-11 bg-blue-900 hover:bg-blue-800 rounded-xl text-sm font-medium"
+                  disabled={loading}
+                  onClick={handleProceed}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  ชำระด้วย {selectedMethod.name}
+                </Button>
+              )}
+
+              {!showCardForm && !selectedMethod && (
+                <Button className="w-full h-11 bg-blue-900 hover:bg-blue-800 rounded-xl text-sm font-medium opacity-60" disabled>
+                  เลือกวิธีชำระเงิน
+                </Button>
+              )}
+            </div>
+
+            {/* ── Right: order summary ────────────────────── */}
+            <div className="lg:col-span-2">
+              <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-24 space-y-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">สรุปคำสั่งซื้อ</p>
+
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg text-white shrink-0" style={{ background: plan.color }}>
+                    {plan.icon}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">BaanTDee {plan.name}</p>
+                    <p className="text-xs text-gray-400">30 วัน</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-dashed border-gray-200 pt-4 space-y-2">
+                  {plan.features.map((f) => (
+                    <div key={f} className="flex items-center gap-2 text-xs text-gray-500">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />{f}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-gray-100 pt-4 flex items-center justify-between">
+                  <span className="text-sm text-gray-600">ยอดชำระ</span>
+                  <span className="text-lg font-bold text-gray-900">฿{plan.price.toLocaleString()}</span>
+                </div>
+
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  ชำระซ้ำได้ทุก 30 วัน · ยกเลิกได้ตลอดเวลา · ราคานี้รวม VAT แล้ว
+                </p>
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
     </>
