@@ -13,6 +13,8 @@ interface BackendUser {
   role: string;
   avatar: string | null;
   created_at: string;
+  has_google: boolean;
+  has_facebook: boolean;
 }
 
 interface BackendAuthResponse {

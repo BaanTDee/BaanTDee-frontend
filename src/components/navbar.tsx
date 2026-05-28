@@ -64,7 +64,7 @@ export default function Navbar() {
                 className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-blue-900 transition"
               >
                 <User className="h-4 w-4" />
-                <span className="max-w-[120px] truncate">{session.user.name || session.user.email}</span>
+                <span className="max-w-[120px] truncate">{(session as any).backendUser?.name || session.user.name || session.user.email}</span>
               </Link>
             </div>
           ) : (
