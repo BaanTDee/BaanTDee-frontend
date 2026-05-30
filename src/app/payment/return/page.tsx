@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { getChargeStatus } from "@/lib/api";
 
 type Status = "loading" | "success" | "failed" | "pending";
 
-export default function PaymentReturnPage() {
+function PaymentReturnContent() {
   const router = useRouter();
   const params = useSearchParams();
   const [status, setStatus] = useState<Status>("loading");
@@ -84,5 +84,17 @@ export default function PaymentReturnPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function PaymentReturnPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-900" />
+      </div>
+    }>
+      <PaymentReturnContent />
+    </Suspense>
   );
 }
