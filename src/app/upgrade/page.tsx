@@ -36,7 +36,7 @@ const PLANS = [
     name: "Standard",
     price: 199,
     color: "#2563eb",
-    tagline: "12 ประกาศ · 10 รูป",
+    tagline: ["12 ประกาศ", "10 รูป/ประกาศ", "ความละเอียดสูงสุด 1080p"],
     features: ["12 ประกาศ", "10 รูป/ประกาศ", "รูปความละเอียดสูงสุด 1080p"],
   },
   {
@@ -45,7 +45,7 @@ const PLANS = [
     price: 499,
     color: "#1e3a8a",
     badge: "แนะนำ",
-    tagline: "30 ประกาศ · 15 รูป",
+    tagline: ["30 ประกาศ", "15 รูป/ประกาศ", "ความละเอียดสูงสุด 2K"],
     features: ["30 ประกาศ", "15 รูป/ประกาศ", "รูปความละเอียดสูงสุด 2K"],
   },
   {
@@ -53,7 +53,7 @@ const PLANS = [
     name: "Agency",
     price: 1299,
     color: "#7c3aed",
-    tagline: "200 ประกาศ · ทีม 5 คน",
+    tagline: ["200 ประกาศ", "20 รูป/ประกาศ", "ความละเอียดสูงสุด 4K", "ทีม 5 คน"],
     features: ["200 ประกาศ", "20 รูป/ประกาศ", "รูปความละเอียดสูงสุด 4K", "ทีม 5 คน"],
   },
 ];
@@ -333,7 +333,11 @@ export default function UpgradePage() {
                   </span>
                   <div>
                     <p className="text-sm font-bold text-gray-900">{p.name}</p>
-                    <p className="text-xs text-gray-500 leading-snug mt-0.5">{p.tagline}</p>
+                    <div className="mt-0.5 space-y-0.5">
+                      {p.tagline.map((line, i) => (
+                        <p key={i} className="text-xs text-gray-500 leading-snug">{line}</p>
+                      ))}
+                    </div>
                     <p className="text-sm font-semibold text-gray-900 mt-1">฿{p.price.toLocaleString()}/เดือน</p>
                   </div>
                 </button>
