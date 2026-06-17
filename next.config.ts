@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  output: "standalone",
 
   // Allow images from R2 / Cloudflare CDN, picsum (mock), and placeholder
   images: {
