@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createCharge, getChargeStatus, type PaymentMethod } from "@/lib/api";
+import { createCharge, getChargeStatus, getAccessToken, setTokens, getMe, type PaymentMethod } from "@/lib/api";
 import { PAYMENT_ICONS, detectCardBrand, CARD_BRAND_ICONS, type CardBrand } from "@/components/payment-icons";
 
 declare global {
@@ -27,34 +27,36 @@ declare global {
   }
 }
 
-type PlanKey = "standard_monthly" | "pro_monthly" | "agency_monthly";
+type PlanName = "standard" | "pro" | "agency";
+type BillingPeriod = "monthly" | "annual";
+type PlanKey = "standard_monthly" | "pro_monthly" | "agency_monthly" | "standard_annual" | "pro_annual" | "agency_annual";
 type Step = "main" | "qr" | "redirecting" | "success" | "failed";
 
-const PLANS = [
+const PLAN_DATA = [
   {
-    key: "standard_monthly" as PlanKey,
-    name: "Standard",
-    price: 199,
+    name: "standard" as PlanName,
+    displayName: "Standard",
     color: "#2563eb",
-    tagline: ["12 ประกาศ", "10 รูป/ประกาศ", "ความละเอียดสูงสุด 1080p"],
-    features: ["12 ประกาศ", "10 รูป/ประกาศ", "รูปความละเอียดสูงสุด 1080p"],
+    features: ["12 ประกาศ", "10 รูป/ประกาศ"],
+    monthly: { key: "standard_monthly" as PlanKey, price: 199 },
+    annual:  { key: "standard_annual"  as PlanKey, price: 2200 },
   },
   {
-    key: "pro_monthly" as PlanKey,
-    name: "Pro",
-    price: 499,
+    name: "pro" as PlanName,
+    displayName: "Pro",
     color: "#1e3a8a",
     badge: "แนะนำ",
-    tagline: ["30 ประกาศ", "15 รูป/ประกาศ", "ความละเอียดสูงสุด 2K"],
-    features: ["30 ประกาศ", "15 รูป/ประกาศ", "รูปความละเอียดสูงสุด 2K"],
+    features: ["30 ประกาศ", "15 รูป/ประกาศ"],
+    monthly: { key: "pro_monthly" as PlanKey, price: 499 },
+    annual:  { key: "pro_annual"  as PlanKey, price: 5400 },
   },
   {
-    key: "agency_monthly" as PlanKey,
-    name: "Agency",
-    price: 1299,
+    name: "agency" as PlanName,
+    displayName: "Agency",
     color: "#7c3aed",
-    tagline: ["200 ประกาศ", "20 รูป/ประกาศ", "ความละเอียดสูงสุด 4K", "ทีม 5 คน"],
-    features: ["200 ประกาศ", "20 รูป/ประกาศ", "รูปความละเอียดสูงสุด 4K", "ทีม 5 คน"],
+    features: ["200 ประกาศ", "20 รูป/ประกาศ", "ทีม 5 คน"],
+    monthly: { key: "agency_monthly" as PlanKey, price: 1299 },
+    annual:  { key: "agency_annual"  as PlanKey, price: 14000 },
   },
 ];
 
@@ -112,9 +114,19 @@ function RadioDot({ active }: { active: boolean }) {
 
 export default function UpgradePage() {
   const router = useRouter();
-  const { status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>("pro_monthly");
+  // Sync OAuth token from NextAuth session to localStorage if missing
+  useEffect(() => {
+    const sessionToken = (session as any)?.accessToken as string | undefined;
+    const sessionRefresh = (session as any)?.refreshToken as string | undefined;
+    if (sessionToken && !getAccessToken()) {
+      setTokens(sessionToken, sessionRefresh ?? "");
+    }
+  }, [session]);
+
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("monthly");
+  const [selectedPlanName, setSelectedPlanName] = useState<PlanName>("pro");
   const [selectedMethod, setSelectedMethod] = useState<MethodDef | null>(null);
   const [step, setStep] = useState<Step>("main");
   const [error, setError] = useState("");
@@ -146,7 +158,7 @@ export default function UpgradePage() {
     const id = setInterval(async () => {
       const res = await getChargeStatus(chargeId);
       if (res.success && res.data.status === "successful") {
-        setPolling(false); setStep("success");
+        setPolling(false); await refreshSessionUser(); setStep("success");
       } else if (res.success && (res.data.status === "failed" || res.data.status === "expired")) {
         setPolling(false); setError("การชำระเงินไม่สำเร็จ"); setStep("failed");
       }
@@ -154,13 +166,20 @@ export default function UpgradePage() {
     return () => clearInterval(id);
   }, [polling, chargeId]);
 
-  const plan = PLANS.find((p) => p.key === selectedPlan)!;
+  const planData = PLAN_DATA.find((p) => p.name === selectedPlanName)!;
+  const planPricing = planData[billingPeriod];
+  const selectedPlan = planPricing.key;
 
   const reset = () => {
     setStep("main"); setError(""); setSelectedMethod(null);
     setQrUrl(""); setChargeId(""); setPolling(false);
     setActiveAccordion(null); setAgreedTnC(false);
     setCardNumber(""); setCardName(""); setExpiry(""); setCvv(""); setPhone(""); setCardBrand(null);
+  };
+
+  const refreshSessionUser = async () => {
+    const me = await getMe();
+    if (me.success) await updateSession({ backendUser: me.data });
   };
 
   const doCharge = async (method: PaymentMethod, token?: string, phoneNum?: string) => {
@@ -172,7 +191,7 @@ export default function UpgradePage() {
       });
       if (!res.success) { setError((res as any).error?.message || "ชำระเงินไม่สำเร็จ"); setStep("failed"); return; }
       const { status: cs, chargeId: cid, promptpayQr, authorizeUri } = res.data;
-      if (cs === "successful") { setStep("success"); return; }
+      if (cs === "successful") { await refreshSessionUser(); setStep("success"); return; }
       if (authorizeUri) { setStep("redirecting"); setTimeout(() => { window.location.href = authorizeUri; }, 800); return; }
       if (promptpayQr) { setChargeId(cid); setQrUrl(promptpayQr); setStep("qr"); setPolling(true); return; }
       setError("ไม่สามารถดำเนินการได้"); setStep("failed");
@@ -245,7 +264,8 @@ export default function UpgradePage() {
         </div>
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">ชำระเงินสำเร็จ</h1>
-          <p className="mt-1 text-sm text-gray-500">แพ็กเกจ {plan.name} เริ่มต้นแล้ว 30 วัน</p>
+          <p className="mt-1 text-sm text-gray-500">แพ็กเกจ <span className="font-semibold text-gray-700">{planData.displayName}</span> · ฿{planPricing.price.toLocaleString()}</p>
+          <p className="mt-0.5 text-xs text-gray-400">เริ่มต้นแล้ว {billingPeriod === "annual" ? "1 ปี" : "30 วัน"}</p>
         </div>
         <Button className="w-full bg-blue-900 hover:bg-blue-800 h-11" onClick={() => router.push("/profile")}>
           ดูโปรไฟล์
@@ -286,7 +306,7 @@ export default function UpgradePage() {
       <div className="text-center space-y-6 max-w-xs w-full">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">สแกนเพื่อชำระเงิน</h2>
-          <p className="mt-1 text-sm text-gray-500">{plan.name} ฿{plan.price.toLocaleString()}</p>
+          <p className="mt-1 text-sm text-gray-500">{planData.displayName} ฿{planPricing.price.toLocaleString()}</p>
         </div>
         {qrUrl
           // eslint-disable-next-line @next/next/no-img-element
@@ -311,19 +331,39 @@ export default function UpgradePage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-1">เลือกแพ็กเกจของคุณ</h1>
           <p className="text-sm text-gray-500 mb-7">ยกระดับการลงประกาศ เริ่มต้นได้เลยวันนี้</p>
 
+          {/* ── Billing toggle ── */}
+          <div className="flex items-center justify-center mb-5">
+            <div className="inline-flex items-center bg-gray-100 rounded-full p-1 gap-1">
+              <button
+                onClick={() => setBillingPeriod("monthly")}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${billingPeriod === "monthly" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                รายเดือน
+              </button>
+              <button
+                onClick={() => setBillingPeriod("annual")}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${billingPeriod === "annual" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                รายปี
+                <span className="text-[10px] font-semibold text-green-600 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">ประหยัดกว่า</span>
+              </button>
+            </div>
+          </div>
+
           {/* ── Plan selector ── */}
           <div className="grid grid-cols-3 gap-3 mb-5">
-            {PLANS.map((p) => {
-              const active = selectedPlan === p.key;
+            {PLAN_DATA.map((p) => {
+              const active = selectedPlanName === p.name;
+              const pricing = p[billingPeriod];
               return (
                 <button
-                  key={p.key}
-                  onClick={() => setSelectedPlan(p.key)}
+                  key={p.name}
+                  onClick={() => setSelectedPlanName(p.name)}
                   className={`relative flex flex-col gap-3 p-4 rounded-xl border-2 text-left transition-all ${
                     active ? "border-blue-600 bg-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  {p.badge && (
+                  {p.badge && billingPeriod === "monthly" && (
                     <span className="absolute top-3 right-3 text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                       {p.badge}
                     </span>
@@ -332,13 +372,22 @@ export default function UpgradePage() {
                     {active && <span className="h-2 w-2 rounded-full bg-white" />}
                   </span>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{p.name}</p>
-                    <div className="mt-0.5 space-y-0.5">
-                      {p.tagline.map((line, i) => (
+                    <p className="text-sm font-bold text-gray-900">{p.displayName}</p>
+                    <div className="mt-0.5 space-y-0.5 min-h-[4.5rem]">
+                      {p.features.map((line, i) => (
                         <p key={i} className="text-xs text-gray-500 leading-snug">{line}</p>
                       ))}
                     </div>
-                    <p className="text-sm font-semibold text-gray-900 mt-1">฿{p.price.toLocaleString()}/เดือน</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-1">
+                      ฿{pricing.price.toLocaleString()}
+                      <span className="text-xs font-normal text-gray-400">/{billingPeriod === "monthly" ? "เดือน" : "ปี"}</span>
+                    </p>
+                    {billingPeriod === "annual" && (
+                      <div className="mt-0.5">
+                        <p className="text-[10px] text-green-600">ประหยัด {Math.round((1 - pricing.price / (p.monthly.price * 12)) * 100)}%</p>
+                        <p className="text-[10px] text-gray-400">≈ ฿{Math.round(pricing.price / 12).toLocaleString()}/เดือน</p>
+                      </div>
+                    )}
                   </div>
                 </button>
               );
@@ -358,16 +407,23 @@ export default function UpgradePage() {
             <p className="text-sm font-semibold text-gray-800 mb-3">รายละเอียดคำสั่งซื้อ</p>
             <div className="flex items-start justify-between text-sm">
               <div>
-                <p className="font-medium text-gray-900">{plan.name}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{plan.features.join(" · ")}</p>
+                <p className="font-medium text-gray-900">
+                  {planData.displayName}
+                  <span className="ml-1.5 text-xs text-gray-400 font-normal">{billingPeriod === "monthly" ? "รายเดือน" : "รายปี"}</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">{planData.features.join(" · ")}</p>
               </div>
-              <p className="font-medium text-gray-900 shrink-0 ml-4">฿{plan.price.toLocaleString()}</p>
+              <p className="font-medium text-gray-900 shrink-0 ml-4">฿{planPricing.price.toLocaleString()}</p>
             </div>
             <div className="mt-3 pt-3 border-t border-dashed border-gray-200 flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-900">ยอดชำระวันนี้</p>
-              <p className="text-base font-bold text-gray-900">฿{plan.price.toLocaleString()}</p>
+              <p className="text-base font-bold text-gray-900">฿{planPricing.price.toLocaleString()}</p>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">รวม VAT แล้ว · ชำระซ้ำได้ทุก 30 วัน · ยกเลิกได้ตลอดเวลา</p>
+            <p className="text-[11px] text-gray-400 mt-1">
+              {billingPeriod === "monthly"
+                ? "รวม VAT แล้ว · ต่ออายุอัตโนมัติทุก 30 วัน (บัตร) · ยกเลิกได้ตลอดเวลา"
+                : "รวม VAT แล้ว · จ่ายครั้งเดียว ใช้งาน 1 ปี · ไม่มีการเรียกเก็บเงินซ้ำ"}
+            </p>
           </div>
 
           {/* ── Payment method ── */}
@@ -544,7 +600,9 @@ export default function UpgradePage() {
               className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-blue-700 cursor-pointer"
             />
             <span className="text-xs text-gray-500 leading-relaxed">
-              คุณยอมรับว่า BaanTDee จะเรียกเก็บเงิน ฿{plan.price.toLocaleString()} ทุก 30 วัน จนกว่าจะยกเลิก ตาม{" "}
+              {billingPeriod === "monthly"
+                ? `คุณยอมรับว่า BaanTDee จะเรียกเก็บเงิน ฿${planPricing.price.toLocaleString()} ทุก 30 วัน จนกว่าจะยกเลิก ตาม`
+                : `คุณยอมรับว่าจะชำระ ฿${planPricing.price.toLocaleString()} ครั้งเดียวเพื่อใช้งาน 1 ปี ตาม`}{" "}
               <Link href="/terms" className="text-blue-600 hover:underline">เงื่อนไขการให้บริการ</Link>
               {" "}และ{" "}
               <Link href="/privacy" className="text-blue-600 hover:underline">นโยบายความเป็นส่วนตัว</Link>
@@ -562,7 +620,7 @@ export default function UpgradePage() {
             onClick={handlePayClick}
           >
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            ชำระเงิน ฿{plan.price.toLocaleString()}
+            ชำระเงิน ฿{planPricing.price.toLocaleString()}
           </Button>
 
           <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-400 mt-3">

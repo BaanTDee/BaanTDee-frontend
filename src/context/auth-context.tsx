@@ -8,6 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { useSession } from "next-auth/react";
 import type { User, LoginBody, RegisterBody } from "@/lib/types";
 import {
   login as apiLogin,
@@ -33,6 +34,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
 
   // On mount, try to fetch current user if we have a token
   const refreshUser = useCallback(async () => {
@@ -60,6 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
+
+  // Sync OAuth tokens (Google/Facebook) from NextAuth session to localStorage
+  useEffect(() => {
+    const sessionToken = (session as any)?.accessToken as string | undefined;
+    const sessionRefresh = (session as any)?.refreshToken as string | undefined;
+    if (sessionToken && !getAccessToken()) {
+      setTokens(sessionToken, sessionRefresh ?? "");
+      refreshUser();
+    }
+  }, [session, refreshUser]);
 
   const login = useCallback(
     async (body: LoginBody): Promise<{ ok: boolean; error?: string }> => {
