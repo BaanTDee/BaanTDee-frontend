@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getChargeStatus } from "@/lib/api";
+import { SuccessReceipt } from "@/components/plan-receipt";
+import { findPlanByKey } from "@/lib/plans";
 
 type Status = "loading" | "success" | "failed" | "pending";
 
@@ -35,6 +37,16 @@ function PaymentReturnContent() {
     };
     poll();
   }, [params]);
+
+  // Rich receipt when we know which plan was purchased (stashed before the bank redirect).
+  if (status === "success") {
+    const key = typeof window !== "undefined" ? sessionStorage.getItem("baantdee_purchase") : null;
+    const resolved = key ? findPlanByKey(key) : null;
+    if (resolved) {
+      try { sessionStorage.removeItem("baantdee_purchase"); } catch {}
+      return <SuccessReceipt plan={resolved.plan} period={resolved.period} />;
+    }
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">

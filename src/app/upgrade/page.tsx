@@ -6,13 +6,15 @@ import { useSession } from "next-auth/react";
 import Script from "next/script";
 import Link from "next/link";
 import {
-  Loader2, CheckCircle2,
+  Loader2,
   Phone, ChevronRight, Lock, ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createCharge, getChargeStatus, getAccessToken, setTokens, getMe, type PaymentMethod } from "@/lib/api";
 import { PAYMENT_ICONS, detectCardBrand, CARD_BRAND_ICONS, type CardBrand } from "@/components/payment-icons";
+import { SuccessReceipt } from "@/components/plan-receipt";
+import { PLAN_DATA, findPlan, type PlanName, type BillingPeriod } from "@/lib/plans";
 
 declare global {
   interface Window {
@@ -27,38 +29,7 @@ declare global {
   }
 }
 
-type PlanName = "standard" | "pro" | "agency";
-type BillingPeriod = "monthly" | "annual";
-type PlanKey = "standard_monthly" | "pro_monthly" | "agency_monthly" | "standard_annual" | "pro_annual" | "agency_annual";
-type Step = "main" | "qr" | "redirecting" | "success" | "failed";
-
-const PLAN_DATA = [
-  {
-    name: "standard" as PlanName,
-    displayName: "Standard",
-    color: "#2563eb",
-    features: ["12 ประกาศ", "10 รูป/ประกาศ"],
-    monthly: { key: "standard_monthly" as PlanKey, price: 199 },
-    annual:  { key: "standard_annual"  as PlanKey, price: 2200 },
-  },
-  {
-    name: "pro" as PlanName,
-    displayName: "Pro",
-    color: "#1e3a8a",
-    badge: "แนะนำ",
-    features: ["30 ประกาศ", "15 รูป/ประกาศ"],
-    monthly: { key: "pro_monthly" as PlanKey, price: 499 },
-    annual:  { key: "pro_annual"  as PlanKey, price: 5400 },
-  },
-  {
-    name: "agency" as PlanName,
-    displayName: "Agency",
-    color: "#7c3aed",
-    features: ["200 ประกาศ", "20 รูป/ประกาศ", "ทีม 5 คน"],
-    monthly: { key: "agency_monthly" as PlanKey, price: 1299 },
-    annual:  { key: "agency_annual"  as PlanKey, price: 14000 },
-  },
-];
+type Step = "main" | "processing" | "qr" | "redirecting" | "success" | "failed";
 
 interface MethodDef {
   id: PaymentMethod;
@@ -166,7 +137,7 @@ export default function UpgradePage() {
     return () => clearInterval(id);
   }, [polling, chargeId]);
 
-  const planData = PLAN_DATA.find((p) => p.name === selectedPlanName)!;
+  const planData = findPlan(selectedPlanName);
   const planPricing = planData[billingPeriod];
   const selectedPlan = planPricing.key;
 
@@ -183,7 +154,7 @@ export default function UpgradePage() {
   };
 
   const doCharge = async (method: PaymentMethod, token?: string, phoneNum?: string) => {
-    setError(""); setLoading(true);
+    setError(""); setLoading(true); setStep("processing");
     try {
       const res = await createCharge({
         plan: selectedPlan, method, token, phone_number: phoneNum,
@@ -192,7 +163,11 @@ export default function UpgradePage() {
       if (!res.success) { setError((res as any).error?.message || "ชำระเงินไม่สำเร็จ"); setStep("failed"); return; }
       const { status: cs, chargeId: cid, promptpayQr, authorizeUri } = res.data;
       if (cs === "successful") { await refreshSessionUser(); setStep("success"); return; }
-      if (authorizeUri) { setStep("redirecting"); setTimeout(() => { window.location.href = authorizeUri; }, 800); return; }
+      if (authorizeUri) {
+        // Stash the purchased plan so /payment/return can show the receipt after the bank redirect.
+        try { sessionStorage.setItem("baantdee_purchase", selectedPlan); } catch {}
+        setStep("redirecting"); setTimeout(() => { window.location.href = authorizeUri; }, 800); return;
+      }
       if (promptpayQr) { setChargeId(cid); setQrUrl(promptpayQr); setStep("qr"); setPolling(true); return; }
       setError("ไม่สามารถดำเนินการได้"); setStep("failed");
     } catch { setError("เกิดข้อผิดพลาด"); setStep("failed"); }
@@ -202,14 +177,15 @@ export default function UpgradePage() {
   const handleCardPay = () => {
     if (!cardNumber || !cardName || !expiry || !cvv) { setError("กรุณากรอกข้อมูลให้ครบ"); return; }
     const [m, y] = expiry.split("/");
-    setLoading(true);
+    setLoading(true); setStep("processing");
     window.Omise.setPublicKey(process.env.NEXT_PUBLIC_OMISE_PUBLIC_KEY || "");
     window.Omise.createToken("card", {
       name: cardName, number: cardNumber.replace(/\s/g, ""),
       expiration_month: parseInt(m), expiration_year: parseInt("20" + y?.trim()),
       security_code: cvv,
     }, async (code, res) => {
-      if (code !== 200 || !res.id) { setError(res.message || "ข้อมูลบัตรไม่ถูกต้อง"); setLoading(false); return; }
+      // Card validation failed → back to the form with the error shown.
+      if (code !== 200 || !res.id) { setError(res.message || "ข้อมูลบัตรไม่ถูกต้อง"); setLoading(false); setStep("main"); return; }
       await doCharge("card", res.id);
     });
   };
@@ -256,23 +232,27 @@ export default function UpgradePage() {
 
   // ── Terminal screens ──────────────────────────────────────────────────────
 
-  if (step === "success") return (
+  if (step === "processing") return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
       <div className="text-center space-y-5 max-w-sm w-full">
-        <div className="mx-auto w-16 h-16 rounded-full bg-green-50 flex items-center justify-center">
-          <CheckCircle2 className="h-8 w-8 text-green-500" />
+        <div className="relative mx-auto w-20 h-20">
+          <span className="absolute inset-0 rounded-full bg-blue-100 animate-ping opacity-60" />
+          <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-blue-50 to-indigo-50 ring-8 ring-blue-50/60">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+          </span>
         </div>
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">ชำระเงินสำเร็จ</h1>
-          <p className="mt-1 text-sm text-gray-500">แพ็กเกจ <span className="font-semibold text-gray-700">{planData.displayName}</span> · ฿{planPricing.price.toLocaleString()}</p>
-          <p className="mt-0.5 text-xs text-gray-400">เริ่มต้นแล้ว {billingPeriod === "annual" ? "1 ปี" : "30 วัน"}</p>
+          <h1 className="text-xl font-bold text-gray-900">กำลังตรวจสอบการชำระเงิน</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {planData.displayName} · ฿{planPricing.price.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">กรุณาอย่าปิดหน้านี้จนกว่าจะเสร็จสิ้น...</p>
         </div>
-        <Button className="w-full bg-blue-900 hover:bg-blue-800 h-11" onClick={() => router.push("/profile")}>
-          ดูโปรไฟล์
-        </Button>
       </div>
     </div>
   );
+
+  if (step === "success") return <SuccessReceipt plan={planData} period={billingPeriod} />;
 
   if (step === "failed") return (
     <div className="flex min-h-[calc(100vh-10rem)] items-center justify-center px-4">
@@ -326,10 +306,20 @@ export default function UpgradePage() {
   return (
     <>
       <Script src="https://cdn.omise.co/omise.js" strategy="lazyOnload" />
-      <div className="min-h-[calc(100vh-10rem)] bg-gray-50 px-4 py-10">
-        <div className="mx-auto max-w-[620px]">
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">เลือกแพ็กเกจของคุณ</h1>
-          <p className="text-sm text-gray-500 mb-7">ยกระดับการลงประกาศ เริ่มต้นได้เลยวันนี้</p>
+      <div className="relative min-h-[calc(100vh-10rem)] overflow-hidden bg-gradient-to-b from-indigo-50/60 via-white to-blue-50/40 px-4 py-10">
+        {/* Decorative vibrant glow */}
+        <div aria-hidden className="pointer-events-none absolute -top-24 left-1/2 -z-0 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-300/30 via-indigo-300/30 to-violet-300/30 blur-3xl" />
+        <div className="relative z-10 mx-auto max-w-[620px]">
+          <div className="mb-7 text-center">
+            <span className="inline-block rounded-full border border-indigo-100 bg-white/70 px-3 py-1 text-xs font-medium text-indigo-600 shadow-sm backdrop-blur">
+              อัปเกรดบัญชี BaanTDee
+            </span>
+            <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-gray-900">
+              เลือกแพ็กเกจ
+              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 bg-clip-text text-transparent"> ของคุณ</span>
+            </h1>
+            <p className="mt-1.5 text-sm text-gray-500">ยกระดับการลงประกาศ เริ่มต้นได้เลยวันนี้</p>
+          </div>
 
           {/* ── Billing toggle ── */}
           <div className="flex items-center justify-center mb-5">
@@ -359,16 +349,18 @@ export default function UpgradePage() {
                 <button
                   key={p.name}
                   onClick={() => setSelectedPlanName(p.name)}
-                  className={`relative flex flex-col gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                    active ? "border-blue-600 bg-white shadow-sm" : "border-gray-200 bg-white hover:border-gray-300"
+                  className={`group relative flex flex-col gap-3 rounded-2xl border-2 p-4 text-left transition-all duration-200 hover:-translate-y-1 ${
+                    active
+                      ? "border-indigo-500 bg-white shadow-lg shadow-indigo-500/15"
+                      : "border-gray-200 bg-white hover:border-indigo-200 hover:shadow-md"
                   }`}
                 >
                   {p.badge && billingPeriod === "monthly" && (
-                    <span className="absolute top-3 right-3 text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                    <span className="absolute -top-2.5 right-3 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
                       {p.badge}
                     </span>
                   )}
-                  <span className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${active ? "border-blue-600 bg-blue-600" : "border-gray-300"}`}>
+                  <span className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0 ${active ? "border-indigo-600 bg-indigo-600" : "border-gray-300 group-hover:border-indigo-300"}`}>
                     {active && <span className="h-2 w-2 rounded-full bg-white" />}
                   </span>
                   <div>
@@ -611,10 +603,10 @@ export default function UpgradePage() {
 
           {/* ── Pay button ── */}
           <Button
-            className={`w-full h-12 text-sm font-semibold rounded-xl transition-colors ${
-              loading ? "bg-blue-900/70 text-white" :
-              canPay ? "bg-blue-900 hover:bg-blue-800 text-white" :
-              "bg-gray-200 text-gray-400 hover:bg-gray-200"
+            className={`h-12 w-full rounded-xl text-sm font-semibold ${
+              canPay && !loading
+                ? "btn-vibrant text-white"
+                : "cursor-not-allowed bg-gray-200 text-gray-400 hover:bg-gray-200"
             }`}
             disabled={!canPay || loading}
             onClick={handlePayClick}

@@ -178,3 +178,92 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* ── transitions.dev — motion tokens (shared scale, install once) ──
+   From .agents/skills/transitions-dev/_root.css. Pasted (not imported)
+   so production CSS doesn't depend on the dev-only skill folder.
+   ponytail: only the tokens + snippets actually used live here; add
+   more from the skill as the site-wide rollout needs them. */
+:root {
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-very-slow: 500ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Success check */
+  --check-opacity-dur: 500ms;
+  --check-rotate-dur: 500ms;
+  --check-rotate-from: 80deg;
+  --check-bob-dur: 500ms;
+  --check-y-amount: 40px;
+  --check-blur-dur: 500ms;
+  --check-blur-from: 10px;
+  --check-path-dur: 500ms;
+  --check-path-delay: 80ms;
+  --check-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-opacity: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-rotate: cubic-bezier(0.22, 1, 0.36, 1);
+  --check-ease-bob: cubic-bezier(0.34, 1.35, 0.64, 1);
+  --check-ease-path: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* transitions.dev — Success check (10-success-check.md), verbatim
+   except stroke-dasharray calibrated to our checkmark path (~30u). */
+.t-success-check {
+  display: inline-block;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+.t-success-check svg { display: block; overflow: visible; }
+.t-success-check svg path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+}
+.t-success-check[data-state="in"] {
+  animation:
+    t-check-fade   var(--check-opacity-dur) var(--check-ease-opacity) forwards,
+    t-check-rotate var(--check-rotate-dur)  var(--check-ease-rotate)  forwards,
+    t-check-blur   var(--check-blur-dur)    var(--check-ease-out)     forwards,
+    t-check-bob    var(--check-bob-dur)     var(--check-ease-bob)     forwards;
+}
+.t-success-check[data-state="in"] svg path {
+  animation: t-check-draw var(--check-path-dur) var(--check-ease-path) var(--check-path-delay, 0ms) forwards;
+}
+@keyframes t-check-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-check-rotate {
+  from { transform: rotate(var(--check-rotate-from)); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes t-check-blur {
+  from { filter: blur(var(--check-blur-from)); }
+  to   { filter: blur(0); }
+}
+@keyframes t-check-bob {
+  from { translate: 0 var(--check-y-amount); }
+  to   { translate: 0 0; }
+}
+@keyframes t-check-draw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .t-success-check { animation: none !important; opacity: 1; }
+  .t-success-check svg path { animation: none !important; stroke-dashoffset: 0 !important; }
+}
+
+/* Vibrant pay button — gradient + hover lift, reduced-motion safe */
+.btn-vibrant {
+  background-image: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #7c3aed 100%);
+  background-size: 160% 160%;
+  background-position: 0% 50%;
+  transition: background-position var(--duration-fast) var(--ease-smooth-out),
+              transform var(--duration-fast) var(--ease-smooth-out),
+              box-shadow var(--duration-fast) var(--ease-smooth-out);
+}
+.btn-vibrant:hover:not(:disabled) {
+  background-position: 100% 50%;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -8px rgba(79, 70, 229, 0.55);
+}
+.btn-vibrant:active:not(:disabled) { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .btn-vibrant { transition: none; }
+  .btn-vibrant:hover:not(:disabled) { transform: none; }
+}

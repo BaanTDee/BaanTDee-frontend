@@ -8,6 +8,24 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/** Map an OAuth/NextAuth error code to a Thai message. Unknown codes are
+ *  shown verbatim so backend failures stay diagnosable from the UI. */
+function authErrorMessage(code: string): string {
+  switch (code) {
+    case "AccessDenied":
+      return "เข้าสู่ระบบไม่สำเร็จ: สิทธิ์ถูกปฏิเสธ";
+    case "INVALID_GOOGLE_TOKEN":
+      return "ยืนยันบัญชี Google ไม่สำเร็จ กรุณาลองใหม่";
+    case "GOOGLE_UNREACHABLE":
+    case "FACEBOOK_UNREACHABLE":
+      return "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่";
+    case "Configuration":
+      return "ระบบเข้าสู่ระบบยังไม่พร้อมใช้งาน";
+    default:
+      return `เข้าสู่ระบบไม่สำเร็จ (${code})`;
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -23,6 +41,12 @@ export default function LoginPage() {
       router.replace("/");
     }
   }, [status, session, router]);
+
+  // Show the reason when redirected back here after a failed OAuth sign-in.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (code) setError(authErrorMessage(code));
+  }, []);
 
   if (status === "authenticated") return null;
 

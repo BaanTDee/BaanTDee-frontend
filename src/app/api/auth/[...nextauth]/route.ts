@@ -140,11 +140,12 @@ export const authOptions: NextAuthOptions = {
             return true;
           }
 
-          console.error("Facebook backend login failed:", data.error);
-          return false;
+          console.error("Facebook backend login failed:", res.status, data.error);
+          const code = data.error?.code || `HTTP_${res.status}`;
+          return `/login?error=${encodeURIComponent(code)}`;
         } catch (error) {
           console.error("Facebook signup error:", error);
-          return false;
+          return `/login?error=FACEBOOK_UNREACHABLE`;
         }
       }
 
@@ -170,11 +171,13 @@ export const authOptions: NextAuthOptions = {
             return true;
           }
 
-          console.error("Google backend login failed:", data.error);
-          return false;
+          // Surface the real reason to the login page instead of a generic AccessDenied.
+          console.error("Google backend login failed:", res.status, data.error);
+          const code = data.error?.code || `HTTP_${res.status}`;
+          return `/login?error=${encodeURIComponent(code)}`;
         } catch (error) {
           console.error("Google signup error:", error);
-          return false;
+          return `/login?error=GOOGLE_UNREACHABLE`;
         }
       }
 
