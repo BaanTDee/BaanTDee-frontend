@@ -7,7 +7,7 @@ import Script from "next/script";
 import Link from "next/link";
 import {
   Loader2,
-  Phone, ChevronRight, Lock, ChevronDown,
+  Phone, ChevronRight, Lock, ChevronDown, Home, Crown, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +119,9 @@ export default function UpgradePage() {
   const [chargeId, setChargeId] = useState("");
   const [polling, setPolling] = useState(false);
   const [phone, setPhone] = useState("");
+
+  // Parallax
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/login?callbackUrl=/upgrade");
@@ -306,9 +309,95 @@ export default function UpgradePage() {
   return (
     <>
       <Script src="https://cdn.omise.co/omise.js" strategy="lazyOnload" />
-      <div className="relative min-h-[calc(100vh-10rem)] overflow-hidden bg-gradient-to-b from-indigo-50/60 via-white to-blue-50/40 px-4 py-10">
+      <div
+        className="relative min-h-[calc(100vh-10rem)] overflow-hidden bg-gradient-to-b from-indigo-50/60 via-white to-blue-50/40 px-4 py-10"
+        onMouseMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setMousePos({ x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height * 2 - 1 });
+        }}
+        onMouseLeave={() => setMousePos({ x: 0, y: 0 })}
+      >
         {/* Decorative vibrant glow */}
         <div aria-hidden className="pointer-events-none absolute -top-24 left-1/2 -z-0 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-300/30 via-indigo-300/30 to-violet-300/30 blur-3xl" />
+
+        {/* Left decorative — xl+ only */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-8 w-48 hidden xl:flex flex-col items-center justify-center gap-5">
+          <div className="absolute h-56 w-56 rounded-full bg-gradient-to-br from-blue-300/25 to-indigo-400/20 blur-3xl" />
+          {/* Listing card */}
+          <div
+            className="relative z-10 w-full bg-white/80 backdrop-blur-md rounded-2xl border border-white/70 shadow-xl shadow-blue-100/60 p-4"
+            style={{ transform: `translate(${mousePos.x * -18}px, ${mousePos.y * -12}px)`, transition: "transform 0.12s ease-out" }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+                <Home className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-gray-800 leading-tight">บ้านพักส่วนตัว</p>
+                <p className="text-[10px] text-gray-400">฿3,200,000</p>
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-green-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400 inline-block animate-pulse" />
+              ประกาศใหม่ · ชั้น 2
+            </div>
+          </div>
+          {/* Pill badge */}
+          <div
+            className="relative z-10 self-start bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full px-3.5 py-1.5 text-[10px] font-semibold text-white shadow-lg shadow-blue-300/40"
+            style={{ transform: `translate(${mousePos.x * -32}px, ${mousePos.y * -22}px)`, transition: "transform 0.18s ease-out" }}
+          >
+            🏡 ลงประกาศได้เลย
+          </div>
+          {/* Dots */}
+          <div
+            className="relative z-10 flex gap-1.5 self-end mr-4"
+            style={{ transform: `translate(${mousePos.x * -48}px, ${mousePos.y * -36}px)`, transition: "transform 0.08s ease-out" }}
+          >
+            {[14, 9, 18, 10].map((s, i) => (
+              <div key={i} className="rounded-full bg-blue-300/50" style={{ width: s, height: s }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Right decorative — xl+ only */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-8 w-48 hidden xl:flex flex-col items-center justify-center gap-5">
+          <div className="absolute h-56 w-56 rounded-full bg-gradient-to-br from-violet-300/20 to-purple-400/15 blur-3xl" />
+          {/* Pro features card */}
+          <div
+            className="relative z-10 w-full bg-white/80 backdrop-blur-md rounded-2xl border border-white/70 shadow-xl shadow-violet-100/60 p-4"
+            style={{ transform: `translate(${mousePos.x * 18}px, ${mousePos.y * -12}px)`, transition: "transform 0.12s ease-out" }}
+          >
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <Crown className="h-3.5 w-3.5 text-indigo-500" />
+              <p className="text-[11px] font-semibold text-gray-800">แพ็กเกจ Pro</p>
+            </div>
+            {["30 ประกาศ/เดือน", "15 รูป/ประกาศ", "ติดอันดับสูงขึ้น"].map((f) => (
+              <div key={f} className="flex items-center gap-1.5 mt-1">
+                <Check className="h-2.5 w-2.5 text-green-500 shrink-0" />
+                <p className="text-[10px] text-gray-500">{f}</p>
+              </div>
+            ))}
+          </div>
+          {/* Stats bubble */}
+          <div
+            className="relative z-10 self-end bg-white/80 backdrop-blur-sm rounded-xl border border-white/70 shadow-lg px-3.5 py-2 text-center"
+            style={{ transform: `translate(${mousePos.x * 32}px, ${mousePos.y * -22}px)`, transition: "transform 0.18s ease-out" }}
+          >
+            <p className="text-sm font-bold text-gray-800">1,200+</p>
+            <p className="text-[9px] text-gray-400 leading-tight">ประกาศบน BaanTDee</p>
+          </div>
+          {/* Dots */}
+          <div
+            className="relative z-10 flex gap-1.5 self-start ml-4"
+            style={{ transform: `translate(${mousePos.x * 48}px, ${mousePos.y * -36}px)`, transition: "transform 0.08s ease-out" }}
+          >
+            {[10, 16, 8, 13].map((s, i) => (
+              <div key={i} className="rounded-full bg-violet-300/50" style={{ width: s, height: s }} />
+            ))}
+          </div>
+        </div>
+
         <div className="relative z-10 mx-auto max-w-[620px]">
           <div className="mb-7 text-center">
             <span className="inline-block rounded-full border border-indigo-100 bg-white/70 px-3 py-1 text-xs font-medium text-indigo-600 shadow-sm backdrop-blur">

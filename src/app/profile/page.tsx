@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut, signIn } from "next-auth/react";
 import Link from "next/link";
 import {
   Loader2, User, Mail, Phone, LogOut, Plus, Home,
@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const [otpStep, setOtpStep] = useState<"idle" | "sending" | "sent" | "verifying">("idle");
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [changingPhone, setChangingPhone] = useState(false);
 
   const backendUser = (session as any)?.backendUser;
 
@@ -88,6 +89,7 @@ export default function ProfilePage() {
           backendUser: { ...backendUser, ...res.data },
         });
         setEditing(false);
+        setChangingPhone(false);
       } else {
         setSaveError((res as any).error?.message || "บันทึกไม่สำเร็จ");
       }
@@ -101,6 +103,7 @@ export default function ProfilePage() {
   const handleCancel = () => {
     setEditing(false);
     setSaveError("");
+    setChangingPhone(false);
     setForm({
       name: backendUser?.name || "",
       phone: backendUser?.phone || "",
@@ -183,12 +186,34 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600">เบอร์โทร</label>
-                  <Input
-                    value={form.phone}
-                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="0812345678"
-                    maxLength={20}
-                  />
+                  {backendUser?.phone_verified && !changingPhone ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-1 items-center gap-2 h-9 rounded-md border border-input bg-muted/50 px-3 text-sm text-muted-foreground">
+                        <Pencil className="h-3.5 w-3.5 opacity-30 shrink-0" />
+                        <span>{form.phone}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setChangingPhone(true); setForm((f) => ({ ...f, phone: "" })); }}
+                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                      >
+                        เปลี่ยน
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Input
+                        value={form.phone}
+                        onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                        placeholder="0812345678"
+                        maxLength={20}
+                        autoFocus={changingPhone}
+                      />
+                      {changingPhone && (
+                        <p className="mt-1 text-xs text-yellow-600">หลังบันทึก จะต้องยืนยันเบอร์ใหม่อีกครั้ง</p>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-600">แนะนำตัว</label>
@@ -305,7 +330,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Linked accounts */}
-        {!editing && (backendUser?.has_google || backendUser?.has_facebook) && (
+        {!editing && (
           <div className="mt-5 border-t pt-4">
             <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-gray-500">
               <Link2 className="h-3.5 w-3.5" />
@@ -318,11 +343,19 @@ export default function ProfilePage() {
                   Google
                 </span>
               )}
-              {backendUser?.has_facebook && (
+              {backendUser?.has_facebook ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs text-gray-700">
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.532-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
                   Facebook
                 </span>
+              ) : (
+                <button
+                  onClick={() => signIn("facebook", { callbackUrl: "/profile" })}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.532-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
+                  เชื่อมต่อ Facebook
+                </button>
               )}
             </div>
           </div>
