@@ -303,10 +303,20 @@ export default function ProfilePage() {
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="รหัส 6 หลัก"
-                      className="h-8 w-32 text-center text-sm tracking-widest"
+                      className="h-9 w-32 text-center text-sm tracking-widest font-mono"
                       maxLength={6}
+                      autoFocus
                     />
-                    <Button size="sm" className="h-8 bg-blue-900 hover:bg-blue-800" onClick={handleVerifyOtp} disabled={otpCode.length !== 6}>
+                    <Button
+                      size="sm"
+                      className={`h-9 px-4 font-semibold transition-all ${
+                        otpCode.length === 6
+                          ? "bg-blue-600 hover:bg-blue-500 text-white shadow-md shadow-blue-200"
+                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      }`}
+                      onClick={handleVerifyOtp}
+                      disabled={otpCode.length !== 6}
+                    >
                       ยืนยัน
                     </Button>
                     <button onClick={handleSendOtp} className="text-xs text-muted-foreground hover:underline">ส่งใหม่</button>
