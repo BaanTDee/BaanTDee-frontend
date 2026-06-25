@@ -283,7 +283,7 @@ export default function ProfilePage() {
                       <button
                         onClick={handleSendOtp}
                         disabled={otpStep === "sending"}
-                        className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-full border border-yellow-300 bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 disabled:opacity-50 shadow-sm"
                       >
                         {otpStep === "sending" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                         ยืนยันเบอร์โทร
