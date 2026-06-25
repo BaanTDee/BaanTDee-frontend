@@ -79,11 +79,16 @@ export default function Navbar() {
             </div>
           )}
 
-          <Link href={session?.user ? "/listings/create" : "/login"}>
-            <Button className="ml-2 rounded-full bg-blue-900 hover:bg-blue-800 text-white px-6">
-              ลงประกาศ
-            </Button>
-          </Link>
+          <Button
+            className="ml-2 rounded-full bg-blue-900 hover:bg-blue-800 text-white px-6"
+            onClick={() => {
+              if (!session?.user) router.push("/login");
+              else if (!(session as any)?.backendUser?.phone_verified) router.push("/profile");
+              else router.push("/listings/create");
+            }}
+          >
+            ลงประกาศ
+          </Button>
 
           {/* Mobile menu */}
           <Button variant="ghost" size="icon" className="md:hidden">
