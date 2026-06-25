@@ -254,6 +254,14 @@ export async function updateMe(body: {
   return apiFetch("/users/me", { method: "PATCH", body: JSON.stringify(body) }, true);
 }
 
+export async function sendPhoneOtp(phone: string): Promise<ApiResponse<null>> {
+  return apiFetch("/users/me/phone/send-otp", { method: "POST", body: JSON.stringify({ phone }) }, true);
+}
+
+export async function verifyPhoneOtp(code: string): Promise<ApiResponse<User>> {
+  return apiFetch("/users/me/phone/verify-otp", { method: "POST", body: JSON.stringify({ code }) }, true);
+}
+
 // ---------- Listings API ----------
 
 export async function getListings(

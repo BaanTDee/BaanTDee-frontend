@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import ListingCard from "@/components/listing-card";
-import { getListings, updateMe, formatPrice } from "@/lib/api";
+import { getListings, updateMe, sendPhoneOtp, verifyPhoneOtp, formatPrice } from "@/lib/api";
 import type { ListingSummary } from "@/lib/types";
 
 export default function ProfilePage() {
@@ -25,6 +25,10 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  const [otpStep, setOtpStep] = useState<"idle" | "sending" | "sent" | "verifying">("idle");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState("");
 
   const backendUser = (session as any)?.backendUser;
 
@@ -102,6 +106,34 @@ export default function ProfilePage() {
       phone: backendUser?.phone || "",
       bio: backendUser?.bio || "",
     });
+  };
+
+  const handleSendOtp = async () => {
+    if (!displayPhone) return;
+    setOtpError("");
+    setOtpCode("");
+    setOtpStep("sending");
+    try {
+      const res = await sendPhoneOtp(displayPhone);
+      if (res.success) { setOtpStep("sent"); }
+      else { setOtpError((res as any).error?.message || "ส่ง OTP ไม่สำเร็จ"); setOtpStep("idle"); }
+    } catch { setOtpError("เกิดข้อผิดพลาด"); setOtpStep("idle"); }
+  };
+
+  const handleVerifyOtp = async () => {
+    setOtpError("");
+    setOtpStep("verifying");
+    try {
+      const res = await verifyPhoneOtp(otpCode);
+      if (res.success) {
+        await updateSession({ ...session, backendUser: { ...backendUser, ...res.data } });
+        setOtpStep("idle");
+        setOtpCode("");
+      } else {
+        setOtpError((res as any).error?.message || "รหัส OTP ไม่ถูกต้อง");
+        setOtpStep("sent");
+      }
+    } catch { setOtpError("เกิดข้อผิดพลาด"); setOtpStep("sent"); }
   };
 
   const displayName = backendUser?.name || session.user.name || session.user.email || "ผู้ใช้งาน";
@@ -218,8 +250,49 @@ export default function ProfilePage() {
                   <div className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Phone className="h-4 w-4 shrink-0" />
                     <span>{displayPhone}</span>
+                    {backendUser?.phone_verified ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <Check className="h-3 w-3" /> ยืนยันแล้ว
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleSendOtp}
+                        disabled={otpStep === "sending"}
+                        className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700 hover:bg-yellow-100 disabled:opacity-50"
+                      >
+                        {otpStep === "sending" ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                        ยืนยันเบอร์โทร
+                      </button>
+                    )}
                   </div>
                 )}
+                {!displayPhone && !editing && (
+                  <div className="mt-0.5 flex items-center gap-1.5 text-sm text-yellow-600">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    <button onClick={() => setEditing(true)} className="underline underline-offset-2">เพิ่มเบอร์โทร</button>
+                  </div>
+                )}
+                {otpStep === "sent" && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Input
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="รหัส 6 หลัก"
+                      className="h-8 w-32 text-center text-sm tracking-widest"
+                      maxLength={6}
+                    />
+                    <Button size="sm" className="h-8 bg-blue-900 hover:bg-blue-800" onClick={handleVerifyOtp} disabled={otpCode.length !== 6}>
+                      ยืนยัน
+                    </Button>
+                    <button onClick={handleSendOtp} className="text-xs text-muted-foreground hover:underline">ส่งใหม่</button>
+                  </div>
+                )}
+                {otpStep === "verifying" && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> กำลังยืนยัน...
+                  </div>
+                )}
+                {otpError && <p className="mt-1 text-xs text-red-600">{otpError}</p>}
                 {displayBio && (
                   <div className="mt-1.5 flex items-start gap-1.5 text-sm text-muted-foreground">
                     <FileText className="h-4 w-4 shrink-0 mt-0.5" />
@@ -257,13 +330,26 @@ export default function ProfilePage() {
 
         {/* Quick links */}
         {!editing && (
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/listings/create">
-              <Button className="bg-blue-900 hover:bg-blue-800 gap-2">
+          <div className="mt-6 space-y-3">
+            {!backendUser?.phone_verified && (
+              <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-2.5 text-sm text-yellow-800">
+                ยืนยันเบอร์โทรก่อนเพื่อลงประกาศได้
+              </div>
+            )}
+          <div className="flex flex-wrap gap-3">
+            {backendUser?.phone_verified ? (
+              <Link href="/listings/create">
+                <Button className="bg-blue-900 hover:bg-blue-800 gap-2">
+                  <Plus className="h-4 w-4" />
+                  ลงประกาศใหม่
+                </Button>
+              </Link>
+            ) : (
+              <Button className="bg-blue-900 hover:bg-blue-800 gap-2 opacity-50 cursor-not-allowed" disabled>
                 <Plus className="h-4 w-4" />
                 ลงประกาศใหม่
               </Button>
-            </Link>
+            )}
             <Link href="/favorites">
               <Button variant="outline" className="gap-2">
                 <Heart className="h-4 w-4" />
@@ -279,6 +365,7 @@ export default function ProfilePage() {
               {logoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
               ออกจากระบบ
             </Button>
+          </div>
           </div>
         )}
       </div>
